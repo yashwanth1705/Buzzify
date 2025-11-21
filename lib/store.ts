@@ -1,0 +1,1130 @@
+import { create } from 'zustand'
+import type { Notification, Course, SubCourse } from './supabase'
+import { User, Message, Group, Department, supabase } from './supabase'
+
+interface AppState {
+  // Authentication
+  currentUser: User | null
+  isAuthenticated: boolean
+
+  // Theme
+  isDarkMode: boolean
+
+  // Users
+  users: User[]
+
+  // Messages
+  messages: Message[]
+
+  // Groups
+  groups: Group[]
+
+  // Departments
+  departments: Department[]
+
+  // Courses
+  courses: Course[]
+
+  // Sub Courses
+  subCourses: SubCourse[]
+
+  // Course Actions
+  addCourse: (course: Omit<Course, 'id' | 'created_at' | 'updated_at'>) => Promise<void>
+  updateCourse: (id: number, course: Partial<Course>) => Promise<void>
+  deleteCourse: (id: number) => Promise<void>
+  fetchCourses: () => Promise<void>
+
+  // Sub Course Actions
+  addSubCourse: (subCourse: Omit<SubCourse, 'id' | 'created_at' | 'updated_at'>) => Promise<void>
+  updateSubCourse: (id: number, subCourse: Partial<SubCourse>) => Promise<void>
+  deleteSubCourse: (id: number) => Promise<void>
+  fetchSubCourses: () => Promise<void>
+
+  // Notifications
+  notifications: Notification[]
+
+  // Actions
+  login: (email: string, password: string, role?: string) => Promise<boolean>
+  logout: () => void
+  toggleTheme: () => void
+
+  // User Actions
+  addUser: (user: Omit<User, 'id' | 'created_at' | 'updated_at'>) => Promise<void>
+  updateUser: (id: number, user: Partial<User>) => Promise<void>
+  deleteUser: (id: number) => Promise<void>
+  fetchUsers: () => Promise<void>
+
+  // Message Actions
+  addMessage: (message: Omit<Message, 'id' | 'created_at' | 'updated_at'>) => Promise<void>
+  acknowledgeMessage: (messageId: number, userId: number) => Promise<void>
+  markMessageAsRead: (messageId: number) => void
+  fetchMessages: () => Promise<void>
+  getMessageAcknowledgementDetails: (messageId: number) => { acknowledged: any[]; pending: any[] }
+
+  // Group Actions
+  addGroup: (group: Omit<Group, 'id' | 'created_at' | 'updated_at'>) => Promise<void>
+  updateGroup: (id: number, group: Partial<Group>) => Promise<void>
+  deleteGroup: (id: number) => Promise<void>
+  fetchGroups: () => Promise<void>
+
+  // Department Actions
+  addDepartment: (department: Omit<Department, 'id' | 'created_at' | 'updated_at'>) => Promise<void>
+  updateDepartment: (id: number, department: Partial<Department>) => Promise<void>
+  deleteDepartment: (id: number) => Promise<void>
+  fetchDepartments: () => Promise<void>
+
+  // Notification Actions
+  addNotification: (notification: Omit<Notification, 'id' | 'created_at'>) => Promise<void>
+  markNotificationAsRead: (id: number) => void
+  markNotificationsAsReadForMessage: (messageId: number) => void
+  getUnreadNotifications: () => Notification[]
+}
+
+// Demo users
+const demoUsers: User[] = [
+  {
+    id: 1,
+    name: 'Admin User',
+    email: 'admin@college.edu',
+    password: 'admin123',
+    role: 'admin',
+    status: 'active',
+    department: 'Administration',
+    phone_number: '1234567890',
+    dob: '1985-01-15',
+    age: 39,
+    blood_group: 'O+',
+  },
+  {
+    id: 2,
+    name: 'Staff Member',
+    email: 'staff@college.edu',
+    password: 'staff123',
+    role: 'staff',
+    status: 'active',
+    department: 'Computer Science',
+    phone_number: '0987654321',
+    dob: '1990-05-20',
+    age: 34,
+    blood_group: 'A+',
+  },
+  {
+    id: 3,
+    name: 'John Student',
+    email: 'student@college.edu',
+    password: 'student123',
+    role: 'student',
+    status: 'active',
+    department: 'Computer Science',
+    course: 'B.Tech',
+    sub_course: 'Computer Science',
+    phone_number: '1122334455',
+    parent_phone: '9988776655',
+    responsible_staff: 'Staff Member',
+    dob: '2003-08-10',
+    age: 21,
+    blood_group: 'B+',
+  },
+  {
+    id: 4,
+    name: 'Sarah Johnson',
+    email: 'sarah@college.edu',
+    password: 'student123',
+    role: 'student',
+    status: 'active',
+    department: 'Computer Science',
+    course: 'B.Tech',
+    sub_course: 'Computer Science',
+    phone_number: '2233445566',
+    parent_phone: '8877665544',
+    responsible_staff: 'Staff Member',
+    dob: '2003-03-15',
+    age: 21,
+    blood_group: 'A-',
+  },
+  {
+    id: 5,
+    name: 'Michael Brown',
+    email: 'michael@college.edu',
+    password: 'student123',
+    role: 'student',
+    status: 'active',
+    department: 'Electronics',
+    course: 'B.Tech',
+    sub_course: 'Electronics',
+    phone_number: '3344556677',
+    parent_phone: '7766554433',
+    responsible_staff: 'Staff Member',
+    dob: '2002-11-22',
+    age: 22,
+    blood_group: 'O-',
+  },
+]
+
+
+
+// Demo groups
+const demoGroups: Group[] = [
+  {
+    id: 1,
+    name: 'Computer Science Students',
+    description: 'All students from Computer Science department',
+    created_by: 'admin@college.edu',
+    members: ['student@college.edu', 'sarah@college.edu'],
+    created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 2,
+    name: 'B.Tech 2024 Batch',
+    description: 'Students from 2024 batch',
+    created_by: 'admin@college.edu',
+    members: ['student@college.edu', 'sarah@college.edu', 'michael@college.edu'],
+    created_at: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+]
+
+// Demo departments
+const demoDepartments: Department[] = [
+  {
+    id: 1,
+    name: 'Computer Science',
+    description: 'Department of Computer Science and Engineering',
+    head_of_department: 'Dr. Smith',
+    created_by: 'admin@college.edu',
+    created_at: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 2,
+    name: 'Electronics',
+    description: 'Department of Electronics and Communication',
+    head_of_department: 'Dr. Johnson',
+    created_by: 'admin@college.edu',
+    created_at: new Date(Date.now() - 300 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 3,
+    name: 'Mechanical Engineering',
+    description: 'Department of Mechanical Engineering',
+    head_of_department: 'Dr. Brown',
+    created_by: 'admin@college.edu',
+    created_at: new Date(Date.now() - 250 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 4,
+    name: 'Civil Engineering',
+    description: 'Department of Civil Engineering',
+    head_of_department: 'Dr. Davis',
+    created_by: 'admin@college.edu',
+    created_at: new Date(Date.now() - 200 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 5,
+    name: 'Administration',
+    description: 'Administrative Department',
+    head_of_department: 'Principal',
+    created_by: 'admin@college.edu',
+    created_at: new Date(Date.now() - 400 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+]
+
+export const useStore = create<AppState>((set, get) => ({
+  // Initial State
+  currentUser: null,
+  isAuthenticated: false,
+  isDarkMode: false,
+  users: demoUsers,
+  messages: [],
+  groups: demoGroups,
+  departments: demoDepartments,
+  courses: [],
+  subCourses: [],
+  notifications: [],
+
+  // Authentication Actions
+  login: async (email: string, password: string, role?: string) => {
+    // First try to find in local users (including newly added ones)
+    let user = get().users.find(
+      (u) => u.email === email && u.password === password && u.status === 'active'
+    )
+
+    // If not found locally, try to fetch from Supabase
+    if (!user) {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', email)
+          .eq('password', password)
+          .eq('status', 'active')
+          .single()
+
+        if (data && !error) {
+          user = data
+          // Add to local state
+          set((state) => ({ users: [...state.users, user!] }))
+        }
+      } catch (supabaseError) {
+        console.warn('Supabase login failed, using local storage only')
+      }
+    }
+
+    // Validate role if provided
+    if (user && role && user.role !== role) {
+      console.warn(`Role mismatch: User has role '${user.role}' but login attempted with role '${role}'`)
+      return Promise.resolve(false)
+    }
+
+    if (user) {
+      set({ currentUser: user, isAuthenticated: true })
+      return Promise.resolve(true)
+    }
+    return Promise.resolve(false)
+  },
+
+  logout: () => {
+    set({ currentUser: null, isAuthenticated: false })
+  },
+
+  toggleTheme: () => {
+    const newTheme = !get().isDarkMode
+    set({ isDarkMode: newTheme })
+    localStorage.setItem('theme', newTheme ? 'dark' : 'light')
+
+    if (newTheme) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  },
+
+  // User Actions
+  addUser: async (userData) => {
+    try {
+      // Save to local state first
+      const newUser: User = {
+        ...userData,
+        id: Math.max(...get().users.map(u => u.id), 0) + 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      set((state) => ({ users: [...state.users, newUser] }))
+
+      // Try to save to Supabase
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .insert([{
+            name: userData.name,
+            email: userData.email,
+            password: userData.password,
+            role: userData.role,
+            status: userData.status,
+            phone_number: userData.phone_number,
+            department: userData.department,
+            course: userData.course,
+            sub_course: userData.sub_course,
+            dob: userData.dob,
+            age: userData.age,
+            blood_group: userData.blood_group,
+            parent_phone: userData.parent_phone,
+            responsible_staff: userData.responsible_staff,
+          }])
+          .select()
+          .single()
+
+        if (error) {
+          console.warn('Supabase not configured or error occurred, using local storage:', error.message)
+        } else {
+          console.log('User saved to Supabase successfully')
+        }
+      } catch (supabaseError) {
+        console.warn('Supabase not available, using local storage only')
+      }
+    } catch (error) {
+      console.error('Failed to add user:', error)
+      throw error
+    }
+  },
+
+  updateUser: async (id, userData) => {
+    try {
+      // Update local state
+      set((state) => ({
+        users: state.users.map((user) =>
+          user.id === id
+            ? { ...user, ...userData, updated_at: new Date().toISOString() }
+            : user
+        ),
+      }))
+
+      // Try to update in Supabase
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .update({
+            name: userData.name,
+            email: userData.email,
+            password: userData.password,
+            role: userData.role,
+            status: userData.status,
+            phone_number: userData.phone_number,
+            department: userData.department,
+            course: userData.course,
+            sub_course: userData.sub_course,
+            dob: userData.dob,
+            age: userData.age,
+            blood_group: userData.blood_group,
+            parent_phone: userData.parent_phone,
+            responsible_staff: userData.responsible_staff,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', id)
+          .select()
+
+        if (error) {
+          console.warn('Supabase not configured or error occurred, using local storage:', error.message)
+        } else {
+          console.log('User updated in Supabase successfully')
+        }
+      } catch (supabaseError) {
+        console.warn('Supabase not available, using local storage only')
+      }
+    } catch (error) {
+      console.error('Failed to update user:', error)
+      throw error
+    }
+  },
+
+  deleteUser: async (id) => {
+    try {
+      // Delete from local state
+      set((state) => ({
+        users: state.users.filter((user) => user.id !== id),
+      }))
+
+      // Try to delete from Supabase
+      try {
+        const { error } = await supabase
+          .from('users')
+          .delete()
+          .eq('id', id)
+
+        if (error) {
+          console.warn('Supabase not configured or error occurred, using local storage:', error.message)
+        } else {
+          console.log('User deleted from Supabase successfully')
+        }
+      } catch (supabaseError) {
+        console.warn('Supabase not available, using local storage only')
+      }
+    } catch (error) {
+      console.error('Failed to delete user:', error)
+      throw error
+    }
+  },
+
+  fetchUsers: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      if (data) {
+        set(() => ({ users: data }))
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error)
+    }
+  },
+
+  // Message Actions
+  addMessage: async (messageData) => {
+    try {
+      // Try to save to Supabase first
+      let supabaseMessage: Message | null = null
+
+      try {
+        const { data, error } = await supabase
+          .from('messages')
+          .insert([{
+            title: messageData.title,
+            content: messageData.content,
+            sender: messageData.sender,
+            sender_role: messageData.sender_role,
+            recipients: messageData.recipients,
+            custom_groups: messageData.custom_groups,
+            priority: messageData.priority,
+            attachments: messageData.attachments,
+            schedule_type: messageData.schedule_type,
+            schedule_date: messageData.schedule_date,
+            schedule_time: messageData.schedule_time,
+            total_recipients: messageData.total_recipients,
+            read_count: 0,
+            acknowledged: false,
+            acknowledged_by: [],
+          }])
+          .select()
+          .single()
+
+        if (error) {
+          console.warn('Supabase insert error, falling back to local storage')
+          throw error
+        } else {
+          supabaseMessage = data
+          console.log('Message saved to Supabase successfully:', data)
+        }
+      } catch (supabaseError) {
+        console.warn('Supabase operation failed, falling back to local storage')
+      }
+
+      // Create message object (use Supabase data if available, otherwise create local)
+      const newMessage: Message = supabaseMessage || {
+        id: Math.max(...get().messages.map(m => m.id), 0) + 1,
+        title: messageData.title,
+        content: messageData.content,
+        sender: messageData.sender,
+        sender_role: messageData.sender_role,
+        recipients: messageData.recipients,
+        custom_groups: messageData.custom_groups,
+        priority: messageData.priority,
+        attachments: messageData.attachments,
+        schedule_type: messageData.schedule_type,
+        schedule_date: messageData.schedule_date,
+        schedule_time: messageData.schedule_time,
+        total_recipients: messageData.total_recipients,
+        read_count: 0,
+        acknowledged: false,
+        acknowledged_by: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+
+      // Save to local state
+      set((state) => ({ messages: [newMessage, ...state.messages] }))
+
+      // Create notifications for recipients
+      const { users, currentUser } = get()
+      let recipientUsers: User[] = []
+
+      if (messageData.recipients === 'all') {
+        recipientUsers = users.filter(u => u.id !== currentUser?.id)
+      } else if (messageData.recipients === 'students') {
+        recipientUsers = users.filter(u => u.role === 'student')
+      } else if (messageData.recipients === 'staff') {
+        recipientUsers = users.filter(u => u.role === 'staff')
+      }
+
+      // Create one notification per recipient (await to avoid races)
+      for (const user of recipientUsers) {
+        await get().addNotification({
+          message_id: newMessage.id,
+          user_id: user.id,
+          message: `New message: ${messageData.title}`,
+          read: false,
+        })
+      }
+
+    } catch (error) {
+      console.error('Failed to save message:', error)
+      throw error
+    }
+  },
+  acknowledgeMessage: async (messageId, userId) => {
+    try {
+      const state = get()
+      const currentUser = state.currentUser
+
+      if (!currentUser) return
+
+      const message = state.messages.find(m => m.id === messageId)
+      if (!message) return
+
+      const currentAcknowledgedBy = message.acknowledged_by || []
+      if (currentAcknowledgedBy.includes(userId)) return
+
+      const newAcknowledgedBy = [...currentAcknowledgedBy, userId]
+
+      // Update local state
+      set((state) => ({
+        messages: state.messages.map((msg) =>
+          msg.id === messageId
+            ? {
+              ...msg,
+              acknowledged_by: newAcknowledgedBy,
+              acknowledged: true,
+            }
+            : msg
+        ),
+      }))
+
+      // Try to save to Supabase
+      if (supabase) {
+        try {
+          // Update message acknowledged status
+          const { data: updateData, error: updateError } = await supabase
+            .from('messages')
+            .update({
+              acknowledged_by: newAcknowledgedBy
+            })
+            .eq('id', messageId)
+            .select()
+
+          console.log('Supabase update result:', { updateData, updateError })
+
+          if (updateError) {
+            console.error('Error updating message acknowledgement:', updateError)
+            // Try camelCase just in case
+            const { error: retryError } = await supabase
+              .from('messages')
+              .update({
+                acknowledgedBy: newAcknowledgedBy
+              })
+              .eq('id', messageId)
+              .select()
+            if (!retryError) console.log('Retry with camelCase succeeded')
+          }
+
+          // Store acknowledgement details (ignore error if table doesn't exist)
+          try {
+            await supabase
+              .from('acknowledgements')
+              .insert({
+                message_id: messageId,
+                user_id: userId,
+                user_name: currentUser.name,
+                user_email: currentUser.email,
+                user_role: currentUser.role,
+                acknowledged_at: new Date().toISOString(),
+              })
+          } catch (ackError) {
+            console.warn('Failed to insert into acknowledgements table (might not exist):', ackError)
+          }
+        } catch (supabaseError) {
+          console.error('Supabase operation failed:', supabaseError)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to acknowledge message:', error)
+    }
+  },
+
+  getMessageAcknowledgementDetails: (messageId) => {
+    const state = get()
+    const message = state.messages.find(m => m.id === messageId)
+    if (!message) return { acknowledged: [], pending: [] }
+
+    const acknowledgedUserIds = message.acknowledged_by || []
+    const acknowledged = state.users.filter(u => acknowledgedUserIds.includes(u.id))
+
+    // Get pending users based on message recipients
+    let allRecipients: typeof state.users = []
+
+    if (message.recipients === 'all') {
+      allRecipients = state.users.filter(u => u.id !== state.currentUser?.id)
+    } else if (message.recipients === 'students') {
+      allRecipients = state.users.filter(u => u.role === 'student')
+    } else if (message.recipients === 'staff') {
+      allRecipients = state.users.filter(u => u.role === 'staff')
+    }
+
+    const pending = allRecipients.filter(u => !acknowledgedUserIds.includes(u.id))
+
+    return { acknowledged, pending }
+  },
+
+  markMessageAsRead: (messageId) => {
+    set((state) => ({
+      messages: state.messages.map((msg) =>
+        msg.id === messageId
+          ? { ...msg, read_count: msg.read_count + 1 }
+          : msg
+      ),
+    }))
+  },
+
+  fetchMessages: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      if (data) {
+        console.log('Fetched messages sample:', data[0])
+        set(() => ({ messages: data }))
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error)
+    }
+  },
+
+  // Group Actions
+  addGroup: async (groupData) => {
+    try {
+      const { data, error } = await supabase
+        .from('groups')
+        .insert([groupData])
+        .select()
+
+      if (error) throw error
+
+      if (data) {
+        set((state) => ({
+          groups: [...state.groups, ...data],
+        }))
+      }
+    } catch (error) {
+      console.error('Error adding group:', error)
+      const newGroup: Group = {
+        ...groupData,
+        id: Math.max(...get().groups.map(g => g.id), 0) + 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      set((state) => ({ groups: [...state.groups, newGroup] }))
+    }
+  },
+
+  updateGroup: async (id, groupData) => {
+    try {
+      const { error } = await supabase
+        .from('groups')
+        .update({ ...groupData, updated_at: new Date().toISOString() })
+        .eq('id', id)
+
+      if (error) throw error
+
+      set((state) => ({
+        groups: state.groups.map((group) =>
+          group.id === id
+            ? { ...group, ...groupData, updated_at: new Date().toISOString() }
+            : group
+        ),
+      }))
+    } catch (error) {
+      console.error('Error updating group:', error)
+      set((state) => ({
+        groups: state.groups.map((group) =>
+          group.id === id
+            ? { ...group, ...groupData, updated_at: new Date().toISOString() }
+            : group
+        ),
+      }))
+    }
+  },
+
+  deleteGroup: async (id) => {
+    try {
+      const { error } = await supabase
+        .from('groups')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
+      set((state) => ({
+        groups: state.groups.filter((group) => group.id !== id),
+      }))
+    } catch (error) {
+      console.error('Error deleting group:', error)
+      set((state) => ({
+        groups: state.groups.filter((group) => group.id !== id),
+      }))
+    }
+  },
+
+  fetchGroups: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('groups')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      if (data) {
+        set(() => ({ groups: data }))
+      }
+    } catch (error) {
+      console.error('Error fetching groups:', error)
+    }
+  },
+
+  // Department Actions
+  addDepartment: async (departmentData) => {
+    try {
+      const { data, error } = await supabase
+        .from('departments')
+        .insert([departmentData])
+        .select()
+
+      if (error) {
+        console.error('Supabase error adding department:', error)
+        throw error
+      }
+
+      if (data) {
+        set((state) => ({
+          departments: [...state.departments, ...data],
+        }))
+      }
+    } catch (error) {
+      console.error('Error adding department:', error)
+      // Fallback to local state if Supabase fails
+      const newDepartment: Department = {
+        ...departmentData,
+        id: Math.max(...get().departments.map(d => d.id), 0) + 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      set((state) => ({ departments: [...state.departments, newDepartment] }))
+    }
+  },
+
+  updateDepartment: async (id, departmentData) => {
+    try {
+      const { error } = await supabase
+        .from('departments')
+        .update({ ...departmentData, updated_at: new Date().toISOString() })
+        .eq('id', id)
+
+      if (error) throw error
+
+      set((state) => ({
+        departments: state.departments.map((department) =>
+          department.id === id
+            ? { ...department, ...departmentData, updated_at: new Date().toISOString() }
+            : department
+        ),
+      }))
+    } catch (error) {
+      console.error('Error updating department:', error)
+      // Fallback to local state
+      set((state) => ({
+        departments: state.departments.map((department) =>
+          department.id === id
+            ? { ...department, ...departmentData, updated_at: new Date().toISOString() }
+            : department
+        ),
+      }))
+    }
+  },
+
+  deleteDepartment: async (id) => {
+    try {
+      const { error } = await supabase
+        .from('departments')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
+      set((state) => ({
+        departments: state.departments.filter((department) => department.id !== id),
+      }))
+    } catch (error) {
+      console.error('Error deleting department:', error)
+      // Fallback to local state
+      set((state) => ({
+        departments: state.departments.filter((department) => department.id !== id),
+      }))
+    }
+  },
+
+  fetchDepartments: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('departments')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      if (data) {
+        set(() => ({ departments: data }))
+      }
+    } catch (error) {
+      console.error('Error fetching departments:', error)
+      // Keep existing local departments if fetch fails
+    }
+  },
+
+  // Notification Actions
+  addNotification: async (notificationData) => {
+    try {
+      // Dedup: check local state first
+      const existsLocally = get().notifications.some(
+        (n) => n.message_id === notificationData.message_id && n.user_id === notificationData.user_id
+      )
+
+      if (existsLocally) {
+        console.info('Notification dedup: found locally, skipping', notificationData)
+        return
+      }
+
+      // Check Supabase for existing notification for same message + user
+      try {
+        const { data: existing, error: selectError } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('message_id', notificationData.message_id)
+          .eq('user_id', notificationData.user_id)
+          .limit(1)
+
+        if (selectError) {
+          console.warn('Supabase select error while checking notifications dedup:', selectError.message || selectError)
+        } else if (existing && existing.length > 0) {
+          console.info('Notification dedup: found in Supabase, skipping', notificationData)
+          return
+        }
+      } catch (err) {
+        console.warn('Supabase not available when checking notification dedup, continuing with local only check')
+      }
+
+      // Try to persist to Supabase
+      try {
+        const { data, error } = await supabase
+          .from('notifications')
+          .insert([notificationData])
+          .select()
+          .single()
+
+        if (error) {
+          console.warn('Supabase insert error for notification, falling back to local:', error.message || error)
+        }
+
+        if (data) {
+          // Use returned Supabase row to maintain consistent ids/created_at
+          set((state) => ({ notifications: [data as Notification, ...state.notifications] }))
+          return
+        }
+      } catch (supabaseError) {
+        console.warn('Supabase unavailable when inserting notification, will add locally')
+      }
+
+      // Fallback/local insertion
+      const newNotification: Notification = {
+        ...notificationData,
+        id: Math.max(...get().notifications.map(n => n.id), 0) + 1,
+        created_at: new Date().toISOString(),
+      }
+
+      set((state) => ({ notifications: [newNotification, ...state.notifications] }))
+    } catch (error) {
+      console.error('Failed to add notification:', error)
+      throw error
+    }
+  },
+
+  markNotificationAsRead: (id) => {
+    set((state) => ({
+      notifications: state.notifications.map((notif) =>
+        notif.id === id ? { ...notif, read: true } : notif
+      ),
+    }))
+  },
+
+  markNotificationsAsReadForMessage: (messageId) => {
+    set((state) => ({
+      notifications: state.notifications.map((notif) =>
+        notif.message_id === messageId ? { ...notif, read: true } : notif
+      ),
+    }))
+  },
+
+  getUnreadNotifications: () => {
+    const { notifications, currentUser } = get()
+    return notifications.filter(
+      (n) => n.user_id === currentUser?.id && !n.read
+    )
+  },
+
+  // Course Actions
+  addCourse: async (courseData) => {
+    try {
+      const { data, error } = await supabase
+        .from('courses')
+        .insert([courseData])
+        .select()
+
+      if (error) throw error
+
+      if (data) {
+        set((state) => ({
+          courses: [...state.courses, ...data],
+        }))
+      }
+    } catch (error) {
+      console.error('Error adding course:', error)
+      const newCourse: Course = {
+        ...courseData,
+        id: Math.max(...get().courses.map(c => c.id), 0) + 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      set((state) => ({ courses: [...state.courses, newCourse] }))
+    }
+  },
+
+  updateCourse: async (id, courseData) => {
+    try {
+      const { error } = await supabase
+        .from('courses')
+        .update({ ...courseData, updated_at: new Date().toISOString() })
+        .eq('id', id)
+
+      if (error) throw error
+
+      set((state) => ({
+        courses: state.courses.map((course) =>
+          course.id === id
+            ? { ...course, ...courseData, updated_at: new Date().toISOString() }
+            : course
+        ),
+      }))
+    } catch (error) {
+      console.error('Error updating course:', error)
+      set((state) => ({
+        courses: state.courses.map((course) =>
+          course.id === id
+            ? { ...course, ...courseData, updated_at: new Date().toISOString() }
+            : course
+        ),
+      }))
+    }
+  },
+
+  deleteCourse: async (id) => {
+    try {
+      const { error } = await supabase
+        .from('courses')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
+      set((state) => ({
+        courses: state.courses.filter((course) => course.id !== id),
+      }))
+    } catch (error) {
+      console.error('Error deleting course:', error)
+      set((state) => ({
+        courses: state.courses.filter((course) => course.id !== id),
+      }))
+    }
+  },
+
+  fetchCourses: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('courses')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      if (data) {
+        set(() => ({ courses: data }))
+      }
+    } catch (error) {
+      console.error('Error fetching courses:', error)
+    }
+  },
+
+  // Sub Course Actions
+  addSubCourse: async (subCourseData) => {
+    try {
+      const { data, error } = await supabase
+        .from('sub_courses')
+        .insert([subCourseData])
+        .select()
+
+      if (error) throw error
+
+      if (data) {
+        set((state) => ({
+          subCourses: [...state.subCourses, ...data],
+        }))
+      }
+    } catch (error) {
+      console.error('Error adding sub course:', error)
+      const newSubCourse: SubCourse = {
+        ...subCourseData,
+        id: Math.max(...get().subCourses.map(sc => sc.id), 0) + 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      set((state) => ({ subCourses: [...state.subCourses, newSubCourse] }))
+    }
+  },
+
+  updateSubCourse: async (id, subCourseData) => {
+    try {
+      const { error } = await supabase
+        .from('sub_courses')
+        .update({ ...subCourseData, updated_at: new Date().toISOString() })
+        .eq('id', id)
+
+      if (error) throw error
+
+      set((state) => ({
+        subCourses: state.subCourses.map((subCourse) =>
+          subCourse.id === id
+            ? { ...subCourse, ...subCourseData, updated_at: new Date().toISOString() }
+            : subCourse
+        ),
+      }))
+    } catch (error) {
+      console.error('Error updating sub course:', error)
+      set((state) => ({
+        subCourses: state.subCourses.map((subCourse) =>
+          subCourse.id === id
+            ? { ...subCourse, ...subCourseData, updated_at: new Date().toISOString() }
+            : subCourse
+        ),
+      }))
+    }
+  },
+
+  deleteSubCourse: async (id) => {
+    try {
+      const { error } = await supabase
+        .from('sub_courses')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
+      set((state) => ({
+        subCourses: state.subCourses.filter((subCourse) => subCourse.id !== id),
+      }))
+    } catch (error) {
+      console.error('Error deleting sub course:', error)
+      set((state) => ({
+        subCourses: state.subCourses.filter((subCourse) => subCourse.id !== id),
+      }))
+    }
+  },
+
+  fetchSubCourses: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('sub_courses')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      if (data) {
+        set(() => ({ subCourses: data }))
+      }
+    } catch (error) {
+      console.error('Error fetching sub courses:', error)
+    }
+  },
+}))

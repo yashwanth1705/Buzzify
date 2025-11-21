@@ -1,0 +1,2 @@
+- [x] Update acknowledgement-tracker.module.css to include width: var(--progress-width); in .progressFill
+- [x] Update acknowledgement-tracker.tsx to import CSS module, replace progress bar classes with styles.progressBar and styles.progressFill, and set style={{ '--progress-width': `${stats.percentage}%` }}
