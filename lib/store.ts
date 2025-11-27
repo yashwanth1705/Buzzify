@@ -1037,30 +1037,85 @@ export const useStore = create<AppState>((set, get) => ({
   // Course Actions
   addCourse: async (courseData) => {
     try {
+      console.log('[addCourse] Starting with data:', JSON.stringify(courseData, null, 2))
+      
+      // Validate required fields
+      if (!courseData.name) {
+        throw new Error('Course name is required')
+      }
+      if (!courseData.department_id) {
+        throw new Error('Department ID is required')
+      }
+      if (!courseData.created_by) {
+        throw new Error('Created by is required')
+      }
+      
+      console.log('[addCourse] Validation passed, inserting to Supabase...')
+      
       const { data, error } = await supabase
         .from('courses')
         .insert([courseData])
         .select()
 
-      if (error) throw error
+      console.log('[addCourse] Supabase response received')
+      console.log('[addCourse] Data:', data)
+      console.log('[addCourse] Error present:', !!error)
+      
+      if (error) {
+        console.error('[addCourse] Supabase returned error object')
+        console.error('[addCourse] Error keys:', Object.keys(error || {}))
+        
+        // Try to extract error information
+        let errorMsg = 'Unknown Supabase error'
+        if (typeof error === 'object' && error !== null) {
+          if ('message' in error) errorMsg = String(error.message)
+          if ('code' in error) console.error('[addCourse] Error code:', error.code)
+          if ('details' in error) console.error('[addCourse] Error details:', error.details)
+          if ('hint' in error) console.error('[addCourse] Error hint:', error.hint)
+        }
+        throw new Error(`Supabase error: ${errorMsg}`)
+      }
 
-      if (data) {
+      if (data && data.length > 0) {
+        console.log('[addCourse] Course inserted successfully')
         set((state) => ({
           courses: [...state.courses, ...data],
         }))
         return data[0] as Course
       }
+      
+      console.warn('[addCourse] No data returned from insert, but no error either')
       return null
     } catch (error) {
-      console.error('Error adding course:', error)
-      const newCourse: Course = {
-        ...courseData,
-        id: Math.max(...get().courses.map(c => c.id), 0) + 1,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+      console.error('[addCourse] Exception caught')
+      console.error('[addCourse] Error type:', typeof error)
+      console.error('[addCourse] Error constructor:', error?.constructor?.name)
+      
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      console.error('[addCourse] Error message:', errorMessage)
+      
+      if (error instanceof Error && error.stack) {
+        console.error('[addCourse] Stack trace:', error.stack)
       }
-      set((state) => ({ courses: [...state.courses, newCourse] }))
-      return newCourse
+      
+      console.error('[addCourse] CourseData:', JSON.stringify(courseData, null, 2))
+      
+      // Fallback: add course optimistically to local state
+      try {
+        const newCourse: Course = {
+          ...courseData,
+          id: Math.max(...get().courses.map(c => c.id), 0) + 1,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }
+        console.log('[addCourse] Adding course optimistically')
+        set((state) => ({ courses: [...state.courses, newCourse] }))
+        return newCourse
+      } catch (fallbackError) {
+        const fallbackMsg = fallbackError instanceof Error ? fallbackError.message : String(fallbackError)
+        console.error('[addCourse] Fallback failed:', fallbackMsg)
+        throw error
+      }
     }
   },
 
@@ -1081,7 +1136,12 @@ export const useStore = create<AppState>((set, get) => ({
         ),
       }))
     } catch (error) {
-      console.error('Error updating course:', error)
+      console.error('Error updating course:', {
+        message: error instanceof Error ? error.message : String(error),
+        error,
+        courseId: id,
+        courseData,
+      })
       set((state) => ({
         courses: state.courses.map((course) =>
           course.id === id
@@ -1105,7 +1165,11 @@ export const useStore = create<AppState>((set, get) => ({
         courses: state.courses.filter((course) => course.id !== id),
       }))
     } catch (error) {
-      console.error('Error deleting course:', error)
+      console.error('Error deleting course:', {
+        message: error instanceof Error ? error.message : String(error),
+        error,
+        courseId: id,
+      })
       set((state) => ({
         courses: state.courses.filter((course) => course.id !== id),
       }))
@@ -1125,7 +1189,10 @@ export const useStore = create<AppState>((set, get) => ({
         set(() => ({ courses: data }))
       }
     } catch (error) {
-      console.error('Error fetching courses:', error)
+      console.error('Error fetching courses:', {
+        message: error instanceof Error ? error.message : String(error),
+        error,
+      })
     }
   },
 

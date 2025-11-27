@@ -997,7 +997,7 @@ export default function AdminPanel() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Departments (Select one or more)</label>
-                <div className="border rounded-md p-3 max-h-40 overflow-y-auto bg-white space-y-2">
+                <div className={`border rounded-md p-3 max-h-40 overflow-y-auto transition-colors duration-300 space-y-2 ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}>
                   {departments.length > 0 ? (
                     departments.map((dept) => (
                       <div key={dept.id} className="flex items-center space-x-2">
@@ -1019,16 +1019,16 @@ export default function AdminPanel() {
                             }
                           }}
                         />
-                        <label htmlFor={`dept-${dept.id}`} className="text-sm cursor-pointer">
+                        <label htmlFor={`dept-${dept.id}`} className={`text-sm cursor-pointer transition-colors duration-300 ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
                           {dept.name}
                         </label>
                       </div>
                     ))
                   ) : (
-                    <p className="text-sm text-gray-500">No departments available</p>
+                    <p className={`text-sm transition-colors duration-300 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>No departments available</p>
                   )}
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
+                <p className={`text-xs text-gray-500 mt-2 transition-colors duration-300 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   Selected: {groupForm.departments.length} department{groupForm.departments.length !== 1 ? 's' : ''}
                 </p>
               </div>
@@ -1149,7 +1149,7 @@ export default function AdminPanel() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Departments (Select one or more)</label>
-                <div className="border rounded-md p-3 max-h-40 overflow-y-auto bg-white space-y-2">
+                <div className={`border rounded-md p-3 max-h-40 overflow-y-auto transition-colors duration-300 space-y-2 ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}>
                   {departments.length > 0 ? (
                     departments.map((dept) => (
                       <div key={dept.id} className="flex items-center space-x-2">
@@ -1171,16 +1171,16 @@ export default function AdminPanel() {
                             }
                           }}
                         />
-                        <label htmlFor={`dept-${dept.id}`} className="text-sm cursor-pointer">
+                        <label htmlFor={`dept-${dept.id}`} className={`text-sm cursor-pointer transition-colors duration-300 ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
                           {dept.name}
                         </label>
                       </div>
                     ))
                   ) : (
-                    <p className="text-sm text-gray-500">No departments available</p>
+                    <p className={`text-sm transition-colors duration-300 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>No departments available</p>
                   )}
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
+                <p className={`text-xs text-gray-500 mt-2 transition-colors duration-300 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   Selected: {groupForm.departments.length} department{groupForm.departments.length !== 1 ? 's' : ''}
                 </p>
               </div>
@@ -1510,8 +1510,8 @@ export default function AdminPanel() {
                 </div>
 
                 {/* Add New Course */}
-                <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-md border border-dashed">
-                  <h5 className="text-xs font-medium mb-2 uppercase text-muted-foreground">Add New Course</h5>
+                <div className={`p-3 rounded-md border border-dashed transition-colors duration-300 ${isDarkMode ? 'bg-gray-800/50 border-gray-600' : 'bg-gray-50 border-gray-300'}`}>
+                  <h5 className={`text-xs font-medium mb-2 uppercase transition-colors duration-300 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Add New Course</h5>
                   <div className="grid grid-cols-2 gap-2 mb-2">
                     <Input
                       placeholder="Course Name"
@@ -1537,27 +1537,47 @@ export default function AdminPanel() {
                     className="w-full h-8"
                     disabled={!newCourseName}
                     onClick={async () => {
-                      if (editingDepartment) {
-                        await addCourse({
-                          name: newCourseName,
-                          code: newCourseCode,
-                          description: newCourseDescription,
-                          department_id: editingDepartment.id,
-                          created_by: 'admin@college.edu'
-                        })
-                        await fetchCourses()
-                      } else {
-                        setTempCourses([...tempCourses, {
-                          id: Date.now().toString(),
-                          name: newCourseName,
-                          code: newCourseCode,
-                          description: newCourseDescription,
-                          subCourses: []
-                        }])
+                      try {
+                        if (editingDepartment) {
+                          // Generate code from course name if not provided
+                          const generatedCode = newCourseCode.trim() || newCourseName.substring(0, 3).toUpperCase()
+                          
+                          const coursePayload = {
+                            name: newCourseName,
+                            code: generatedCode,
+                            description: newCourseDescription || null,
+                            department_id: editingDepartment.id,
+                            created_by: 'admin@college.edu'
+                          }
+                          console.log('[Add Course] Payload:', JSON.stringify(coursePayload, null, 2))
+                          console.log('[Add Course] Department:', editingDepartment)
+                          
+                          const result = await addCourse(coursePayload)
+                          console.log('[Add Course] Result:', result)
+                          
+                          if (result) {
+                            console.log('[Add Course] Course added successfully, fetching courses...')
+                            await fetchCourses()
+                          }
+                        } else {
+                          console.log('[Add Course] No department selected, adding to temp courses')
+                          setTempCourses([...tempCourses, {
+                            id: Date.now().toString(),
+                            name: newCourseName,
+                            code: newCourseCode,
+                            description: newCourseDescription,
+                            subCourses: []
+                          }])
+                        }
+                        setNewCourseName('')
+                        setNewCourseCode('')
+                        setNewCourseDescription('')
+                      } catch (error) {
+                        const errorMsg = error instanceof Error ? error.message : String(error)
+                        console.error('[Add Course] Failed:', errorMsg)
+                        console.error('[Add Course] Full error:', error)
+                        alert(`Error adding course: ${errorMsg}`)
                       }
-                      setNewCourseName('')
-                      setNewCourseCode('')
-                      setNewCourseDescription('')
                     }}
                   >
                     <Plus className="h-3 w-3 mr-1" /> Add Course
