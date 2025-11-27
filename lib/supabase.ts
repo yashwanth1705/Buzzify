@@ -95,7 +95,7 @@ export interface Course {
   id: number
   name: string
   code?: string
-  description?: string
+  description?: string | null
   department_id: number
   created_by: string
   created_at?: string
@@ -106,7 +106,7 @@ export interface SubCourse {
   id: number
   name: string
   code?: string
-  description?: string
+  description?: string | null
   course_id: number
   created_by: string
   created_at?: string
