@@ -24,7 +24,7 @@ export default function Header({ setSidebarOpen, onNotificationClick }: HeaderPr
   const { currentUser, logout, notifications, isDarkMode, toggleTheme } = useStore()
   const [showNotifications, setShowNotifications] = useState(false)
 
-  const unreadNotifications = notifications?.filter((n) => !n.read) || []
+  const unreadNotifications = notifications?.filter((n) => n.user_id === currentUser?.id && !n.read) || []
   const unreadCount = unreadNotifications.length
 
   const handleLogout = () => {
@@ -32,11 +32,10 @@ export default function Header({ setSidebarOpen, onNotificationClick }: HeaderPr
   }
 
   return (
-    <header className={`transition-colors duration-300 ${
-      isDarkMode
+    <header className={`transition-colors duration-300 ${isDarkMode
         ? 'bg-gray-800 border-b border-gray-700'
         : 'bg-white border-b border-gray-200'
-    } px-6 py-4`}>
+      } px-6 py-4`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Button
@@ -47,9 +46,8 @@ export default function Header({ setSidebarOpen, onNotificationClick }: HeaderPr
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <h1 className={`text-xl font-semibold transition-colors duration-300 ${
-            isDarkMode ? 'text-white' : 'text-gray-900'
-          }`}>
+          <h1 className={`text-xl font-semibold transition-colors duration-300 ${isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
             Welcome back, {currentUser?.name?.split(' ')[0]}
           </h1>
         </div>

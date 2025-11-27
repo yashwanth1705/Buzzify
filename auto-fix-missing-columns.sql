@@ -2,6 +2,9 @@
 -- Run this in Supabase SQL Editor to ensure all required columns exist
 -- Safe to run multiple times - uses IF NOT EXISTS and ALTER TABLE ADD COLUMN
 
+
+
+
 -- ===========================================
 -- USERS TABLE: Add missing columns
 -- ===========================================

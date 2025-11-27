@@ -53,6 +53,7 @@ export interface Message {
   schedule_time?: string
   total_recipients: number
   read_count: number
+  read_by?: number[]
   acknowledged: boolean
   acknowledged_by?: number[]
   acknowledgements?: Acknowledgement[]

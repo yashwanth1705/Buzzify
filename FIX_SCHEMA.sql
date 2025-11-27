@@ -34,3 +34,6 @@ GRANT ALL ON messages TO authenticated;
 GRANT ALL ON acknowledgements TO postgres;
 GRANT ALL ON acknowledgements TO anon;
 GRANT ALL ON acknowledgements TO authenticated;
+
+-- 5. Ensure 'read_by' column exists for tracking unique reads
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS read_by INTEGER[] DEFAULT '{}';

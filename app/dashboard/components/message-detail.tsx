@@ -62,7 +62,7 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
   }
 
   const readRate = message.total_recipients > 0
-    ? Math.round((message.read_count / message.total_recipients) * 100)
+    ? Math.min(Math.round((message.read_count / message.total_recipients) * 100), 100)
     : 0
 
   const acknowledgeRate = message.total_recipients > 0
@@ -174,7 +174,7 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
             </div>
           )}
 
-          {currentUser?.role === 'student' && !isAcknowledged() && (
+          {(currentUser?.role === 'student' || currentUser?.role === 'staff') && !isAcknowledged() && (
             <div className="flex justify-center pt-4">
               <Button onClick={handleAcknowledge} size="lg">
                 <CheckCircle className="h-4 w-4 mr-2" />

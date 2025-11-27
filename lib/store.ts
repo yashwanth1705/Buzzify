@@ -29,7 +29,7 @@ interface AppState {
   subCourses: SubCourse[]
 
   // Course Actions
-  addCourse: (course: Omit<Course, 'id' | 'created_at' | 'updated_at'>) => Promise<void>
+  addCourse: (course: Omit<Course, 'id' | 'created_at' | 'updated_at'>) => Promise<Course | null>
   updateCourse: (id: number, course: Partial<Course>) => Promise<void>
   deleteCourse: (id: number) => Promise<void>
   fetchCourses: () => Promise<void>
@@ -68,7 +68,7 @@ interface AppState {
   fetchGroups: () => Promise<void>
 
   // Department Actions
-  addDepartment: (department: Omit<Department, 'id' | 'created_at' | 'updated_at'>) => Promise<void>
+  addDepartment: (department: Omit<Department, 'id' | 'created_at' | 'updated_at'>) => Promise<Department | null>
   updateDepartment: (id: number, department: Partial<Department>) => Promise<void>
   deleteDepartment: (id: number) => Promise<void>
   fetchDepartments: () => Promise<void>
@@ -447,6 +447,7 @@ export const useStore = create<AppState>((set, get) => ({
       let supabaseMessage: Message | null = null
 
       try {
+        // Attempt 1: Try to insert with read_by (new schema)
         const { data, error } = await supabase
           .from('messages')
           .insert([{
@@ -463,6 +464,7 @@ export const useStore = create<AppState>((set, get) => ({
             schedule_time: messageData.schedule_time,
             total_recipients: messageData.total_recipients,
             read_count: 0,
+            read_by: [],
             acknowledged: false,
             acknowledged_by: [],
           }])
@@ -470,14 +472,43 @@ export const useStore = create<AppState>((set, get) => ({
           .single()
 
         if (error) {
-          console.warn('Supabase insert error, falling back to local storage')
-          throw error
+          // If error is about missing column, try fallback
+          console.warn('Supabase insert with read_by failed, retrying without it:', error.message)
+
+          const { data: retryData, error: retryError } = await supabase
+            .from('messages')
+            .insert([{
+              title: messageData.title,
+              content: messageData.content,
+              sender: messageData.sender,
+              sender_role: messageData.sender_role,
+              recipients: messageData.recipients,
+              custom_groups: messageData.custom_groups,
+              priority: messageData.priority,
+              attachments: messageData.attachments,
+              schedule_type: messageData.schedule_type,
+              schedule_date: messageData.schedule_date,
+              schedule_time: messageData.schedule_time,
+              total_recipients: messageData.total_recipients,
+              read_count: 0,
+              acknowledged: false,
+              acknowledged_by: [],
+            }])
+            .select()
+            .single()
+
+          if (retryError) {
+            throw retryError
+          } else {
+            supabaseMessage = retryData
+            console.log('Message saved to Supabase successfully (legacy schema):', retryData)
+          }
         } else {
           supabaseMessage = data
           console.log('Message saved to Supabase successfully:', data)
         }
       } catch (supabaseError) {
-        console.warn('Supabase operation failed, falling back to local storage')
+        console.warn('Supabase operation failed, falling back to local storage', supabaseError)
       }
 
       // Create message object (use Supabase data if available, otherwise create local)
@@ -496,6 +527,7 @@ export const useStore = create<AppState>((set, get) => ({
         schedule_time: messageData.schedule_time,
         total_recipients: messageData.total_recipients,
         read_count: 0,
+        read_by: [],
         acknowledged: false,
         acknowledged_by: [],
         created_at: new Date().toISOString(),
@@ -515,6 +547,20 @@ export const useStore = create<AppState>((set, get) => ({
         recipientUsers = users.filter(u => u.role === 'student')
       } else if (messageData.recipients === 'staff') {
         recipientUsers = users.filter(u => u.role === 'staff')
+      } else if (messageData.recipients === 'admins') {
+        recipientUsers = users.filter(u => u.role === 'admin')
+      } else if (messageData.recipients === 'group' && messageData.custom_groups) {
+        const targetEmails = new Set<string>()
+        const allGroups = get().groups
+
+        messageData.custom_groups.forEach(groupId => {
+          const group = allGroups.find(g => g.id === groupId)
+          if (group && group.members) {
+            group.members.forEach(email => targetEmails.add(email))
+          }
+        })
+
+        recipientUsers = users.filter(u => targetEmails.has(u.email))
       }
 
       // Create one notification per recipient (await to avoid races)
@@ -635,14 +681,55 @@ export const useStore = create<AppState>((set, get) => ({
     return { acknowledged, pending }
   },
 
-  markMessageAsRead: (messageId) => {
+  markMessageAsRead: async (messageId) => {
+    const state = get()
+    const currentUser = state.currentUser
+    if (!currentUser) return
+
+    const message = state.messages.find(m => m.id === messageId)
+    if (!message) return
+
+    // Check if already read by this user
+    const currentReadBy = message.read_by || []
+    if (currentReadBy.includes(currentUser.id)) return
+
+    const newReadBy = [...currentReadBy, currentUser.id]
+    const newReadCount = (message.read_count || 0) + 1
+
+    // Update local state
     set((state) => ({
       messages: state.messages.map((msg) =>
         msg.id === messageId
-          ? { ...msg, read_count: msg.read_count + 1 }
+          ? { ...msg, read_count: newReadCount, read_by: newReadBy }
           : msg
       ),
     }))
+
+    // Update Supabase
+    if (supabase) {
+      try {
+        const { error } = await supabase
+          .from('messages')
+          .update({
+            read_count: newReadCount,
+            read_by: newReadBy
+          })
+          .eq('id', messageId)
+
+        if (error) {
+          console.warn('Failed to update read_by, falling back to simple read_count increment', error)
+          // Fallback: just update read_count
+          await supabase
+            .from('messages')
+            .update({
+              read_count: newReadCount
+            })
+            .eq('id', messageId)
+        }
+      } catch (error) {
+        console.error('Error updating message read status:', error)
+      }
+    }
   },
 
   fetchMessages: async () => {
@@ -772,7 +859,9 @@ export const useStore = create<AppState>((set, get) => ({
         set((state) => ({
           departments: [...state.departments, ...data],
         }))
+        return data[0] as Department
       }
+      return null
     } catch (error) {
       console.error('Error adding department:', error)
       // Fallback to local state if Supabase fails
@@ -783,6 +872,7 @@ export const useStore = create<AppState>((set, get) => ({
         updated_at: new Date().toISOString(),
       }
       set((state) => ({ departments: [...state.departments, newDepartment] }))
+      return newDepartment
     }
   },
 
@@ -958,7 +1048,9 @@ export const useStore = create<AppState>((set, get) => ({
         set((state) => ({
           courses: [...state.courses, ...data],
         }))
+        return data[0] as Course
       }
+      return null
     } catch (error) {
       console.error('Error adding course:', error)
       const newCourse: Course = {
@@ -968,6 +1060,7 @@ export const useStore = create<AppState>((set, get) => ({
         updated_at: new Date().toISOString(),
       }
       set((state) => ({ courses: [...state.courses, newCourse] }))
+      return newCourse
     }
   },
 

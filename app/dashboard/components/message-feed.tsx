@@ -17,19 +17,36 @@ export default function MessageFeed({ onSelectMessage }: MessageFeedProps) {
   // Filter messages based on user role and recipients
   const getVisibleMessages = () => {
     return messages.filter(message => {
-      if (currentUser?.role === 'admin' || currentUser?.role === 'staff') {
-        return true // Admins and staff can see all messages
-      }
-
-      // Students can only see messages sent to them
-      if (message.recipients === 'all' || message.recipients === 'students') {
+      // Admins see everything
+      if (currentUser?.role === 'admin') {
         return true
       }
 
-      // Check if user is in custom groups (simplified for demo)
+      // Debug logging
+      const isStudent = currentUser?.role === 'student'
+      const isStaff = currentUser?.role === 'staff'
+
+      // Check for role-based recipients
+      if (message.recipients === 'all') return true
+      if (isStudent && (message.recipients === 'students' || message.recipients === 'student')) return true
+      if (isStaff && message.recipients === 'staff') return true
+
+      // Allow users to see messages they sent
+      if (message.sender === currentUser?.name) return true
+
+      // Check if user is in custom groups
       if (message.custom_groups && message.custom_groups.length > 0) {
-        // In a real app, you'd check if user is in these groups
-        return true
+        // Check if the current user is a member of any of the message's custom groups
+        // We need to find the groups that match the IDs in message.custom_groups
+        // and check if the current user's email is in their members list
+        const userGroups = useStore.getState().groups.filter(g =>
+          message.custom_groups?.includes(g.id) &&
+          g.members?.includes(currentUser?.email || '')
+        )
+
+        if (userGroups.length > 0) {
+          return true
+        }
       }
 
       return false
@@ -81,7 +98,7 @@ export default function MessageFeed({ onSelectMessage }: MessageFeedProps) {
           {visibleMessages.map((message, idx) => (
             <Card
               key={message.id}
-              className={`hover:shadow-md transition-shadow cursor-pointer animate-slideUp delay-${Math.min(idx, 12)} ${currentUser?.role === 'student' && !isAcknowledged(message) ? 'ring-2 ring-yellow-200 dark:ring-yellow-700 bg-yellow-50 dark:bg-yellow-900/30' : ''}`}
+              className={`hover:shadow-md transition-shadow cursor-pointer animate-slideUp delay-${Math.min(idx, 12)} ${(currentUser?.role === 'student' || currentUser?.role === 'staff') && !isAcknowledged(message) ? 'ring-2 ring-yellow-200 dark:ring-yellow-700 bg-yellow-50 dark:bg-yellow-900/30' : ''}`}
             >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
@@ -105,8 +122,8 @@ export default function MessageFeed({ onSelectMessage }: MessageFeedProps) {
                     {isAcknowledged(message) ? (
                       <CheckCircle className="h-5 w-5 text-green-500" />
                     ) : (
-                      // Highlight unacknowledged messages for students with a small badge
-                      currentUser?.role === 'student' && (
+                      // Highlight unacknowledged messages for students and staff with a small badge
+                      (currentUser?.role === 'student' || currentUser?.role === 'staff') && (
                         <Badge variant="outline" className="text-yellow-700 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700">
                           Needs Acknowledgement
                         </Badge>

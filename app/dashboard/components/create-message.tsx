@@ -22,7 +22,7 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
     title: '',
     content: '',
     priority: 'medium' as 'low' | 'medium' | 'high',
-    recipients: 'all' as 'all' | 'students' | 'staff' | 'admins',
+    recipients: 'all' as 'all' | 'students' | 'staff' | 'admins' | 'group',
     customGroups: [] as number[],
     scheduleType: 'now' as 'now' | 'later',
     scheduleDate: '',
@@ -113,6 +113,8 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
       count = users.filter(u => u.role === 'staff').length
     } else if (formData.recipients === 'admins') {
       count = users.filter(u => u.role === 'admin').length
+    } else if (formData.recipients === 'group') {
+      count = 0
     }
 
     formData.customGroups.forEach(groupId => {
@@ -137,6 +139,8 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
       emails = users.filter(u => u.role === 'staff').map(u => u.email)
     } else if (formData.recipients === 'admins') {
       emails = users.filter(u => u.role === 'admin').map(u => u.email)
+    } else if (formData.recipients === 'group') {
+      emails = []
     }
 
     formData.customGroups.forEach(groupId => {
@@ -233,7 +237,8 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
                       { value: 'all', label: 'All Campus Members', desc: 'Everyone except you' },
                       { value: 'students', label: 'Students Only', desc: 'All students' },
                       { value: 'staff', label: 'Staff Only', desc: 'All staff members' },
-                      { value: 'admins', label: 'Admins Only', desc: 'All administrators' }
+                      { value: 'admins', label: 'Admins Only', desc: 'All administrators' },
+                      { value: 'group', label: 'Specific Groups', desc: 'Select custom groups' }
                     ].map((option) => (
                       <label
                         key={option.value}
@@ -248,27 +253,11 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
                           value={option.value}
                           checked={formData.recipients === option.value}
                           onChange={(e) => {
-                            const val = e.target.value as 'all' | 'students' | 'staff' | 'admins'
-                            let matchingGroupIds: number[] = []
-                            if (val === 'all') {
-                              matchingGroupIds = groups.map((g) => g.id)
-                            } else if (val === 'students') {
-                              matchingGroupIds = groups.filter((g) =>
-                                Array.isArray(g.members) && g.members.some((m) => users.find((u) => u.email === m && u.role === 'student'))
-                              ).map((g) => g.id)
-                            } else if (val === 'staff') {
-                              matchingGroupIds = groups.filter((g) =>
-                                Array.isArray(g.members) && g.members.some((m) => users.find((u) => u.email === m && u.role === 'staff'))
-                              ).map((g) => g.id)
-                            } else if (val === 'admins') {
-                              matchingGroupIds = groups.filter((g) =>
-                                Array.isArray(g.members) && g.members.some((m) => users.find((u) => u.email === m && u.role === 'admin'))
-                              ).map((g) => g.id)
-                            }
+                            const val = e.target.value as 'all' | 'students' | 'staff' | 'admins' | 'group'
                             setFormData((prev) => ({
                               ...prev,
                               recipients: val,
-                              customGroups: matchingGroupIds,
+                              customGroups: [], // Reset custom groups when changing recipient type
                             }))
                           }}
                           className="mt-1"
@@ -282,7 +271,7 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
                   </div>
                 </div>
 
-                {currentUser?.role === 'admin' && groups.length > 0 && (
+                {currentUser?.role === 'admin' && groups.length > 0 && formData.recipients === 'group' && (
                   <div>
                     <label className="block text-sm font-semibold mb-3">Custom Groups</label>
                     <div className="border rounded-lg p-3 max-h-56 overflow-y-auto bg-gray-50 dark:bg-gray-800 space-y-2">
