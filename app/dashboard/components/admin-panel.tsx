@@ -33,6 +33,7 @@ import {
   Trash2 as TrashIcon
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import CombinedSettings from './combined-settings'
 
 export default function AdminPanel() {
   const {
@@ -708,49 +709,7 @@ export default function AdminPanel() {
         )}
 
         {activeTab === 'settings' && (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>System Settings</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Message Retention Period (days)
-                    </label>
-                    <Input type="number" defaultValue="365" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Max File Upload Size (MB)
-                    </label>
-                    <Input type="number" defaultValue="10" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Acknowledgement Timeout (hours)
-                    </label>
-                    <Input type="number" defaultValue="24" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Email Notifications
-                    </label>
-                    <Select defaultValue="enabled">
-                      <SelectContent>
-                        <SelectItem value="enabled">Enabled</SelectItem>
-                        <SelectItem value="disabled">Disabled</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="flex justify-end">
-                  <Button>Save Settings</Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <CombinedSettings />
         )}
       </div>
 

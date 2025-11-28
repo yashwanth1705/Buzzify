@@ -9,7 +9,6 @@ import MessageFeed from './components/message-feed'
 import CreateMessage from './components/create-message'
 import AdminPanel from './components/admin-panel'
 import MessageDetail from './components/message-detail'
-import PasswordManagement from './components/password-management'
 import AcknowledgementTracker from './components/acknowledgement-tracker'
 
 export default function DashboardPage() {
@@ -55,8 +54,6 @@ export default function DashboardPage() {
         return <AcknowledgementTracker />
       case 'admin':
         return <AdminPanel />
-      case 'settings':
-        return currentUser?.role === 'admin' ? <PasswordManagement /> : <MessageFeed onSelectMessage={setSelectedMessageId} />
       default:
         return <MessageFeed onSelectMessage={setSelectedMessageId} />
     }

@@ -48,12 +48,6 @@ export default function Sidebar({
       label: 'Admin Panel',
       icon: Settings,
       roles: ['admin']
-    },
-    {
-      id: 'settings',
-      label: 'Settings',
-      icon: Settings,
-      roles: ['admin']
     }
   ]
 

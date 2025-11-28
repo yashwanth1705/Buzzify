@@ -50,10 +50,10 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
 
   const handleAcknowledge = async () => {
     if (currentUser) {
-      await acknowledgeMessage(messageId, currentUser.id)
-      // brief acknowledgement confirmation animation
       setAcknowledgeAnimating(true)
-      setTimeout(() => setAcknowledgeAnimating(false), 900)
+      await acknowledgeMessage(messageId, currentUser.id)
+      // Show confirmation animation for 500ms, then fade button
+      setTimeout(() => setAcknowledgeAnimating(false), 500)
     }
   }
 
@@ -174,12 +174,19 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
             </div>
           )}
 
-          {(currentUser?.role === 'student' || currentUser?.role === 'staff') && !isAcknowledged() && (
+          {(currentUser?.role === 'student' || currentUser?.role === 'staff' || (currentUser?.role === 'admin' && message.sender_role === 'staff')) && (
             <div className="flex justify-center pt-4">
-              <Button onClick={handleAcknowledge} size="lg">
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Acknowledge Message Receipt
-              </Button>
+              {!isAcknowledged() && (
+                <Button 
+                  onClick={handleAcknowledge} 
+                  size="lg"
+                  className={acknowledgeAnimating ? 'animate-buttonDisappear' : ''}
+                  disabled={acknowledgeAnimating}
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Acknowledge Message Receipt
+                </Button>
+              )}
             </div>
           )}
           {acknowledgeAnimating && (

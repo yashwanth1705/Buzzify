@@ -236,10 +236,12 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
                     {[
                       { value: 'all', label: 'All Campus Members', desc: 'Everyone except you' },
                       { value: 'students', label: 'Students Only', desc: 'All students' },
-                      { value: 'staff', label: 'Staff Only', desc: 'All staff members' },
-                      { value: 'admins', label: 'Admins Only', desc: 'All administrators' },
+                      { value: 'staff', label: 'Staff Only', desc: 'All staff members', hideFor: ['staff'] },
+                      { value: 'admins', label: 'Admins Only', desc: 'All administrators', hideFor: ['admin'] },
                       { value: 'group', label: 'Specific Groups', desc: 'Select custom groups' }
-                    ].map((option) => (
+                    ]
+                      .filter(option => !option.hideFor?.includes(currentUser?.role || ''))
+                      .map((option) => (
                       <label
                         key={option.value}
                         className={`flex items-start space-x-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${formData.recipients === option.value

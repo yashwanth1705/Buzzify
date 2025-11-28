@@ -64,6 +64,24 @@ export default function MessageFeed({ onSelectMessage }: MessageFeedProps) {
     }
   }
 
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'admin': return 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200 border-red-300 dark:border-red-700'
+      case 'staff': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-200 border-yellow-300 dark:border-yellow-700'
+      case 'student': return 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200 border-blue-300 dark:border-blue-700'
+      default: return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200'
+    }
+  }
+
+  const getSenderDetails = (senderName: string, senderRole: string) => {
+    const sender = useStore.getState().users.find(u => u.name === senderName)
+    return {
+      department: sender?.department || 'N/A',
+      role: senderRole,
+      sender: sender
+    }
+  }
+
   const handleAcknowledge = (messageId: number) => {
     if (currentUser) {
       acknowledgeMessage(messageId, currentUser.id)
@@ -72,6 +90,18 @@ export default function MessageFeed({ onSelectMessage }: MessageFeedProps) {
 
   const isAcknowledged = (message: any) => {
     return currentUser && message.acknowledged_by?.includes(currentUser.id)
+  }
+
+  const shouldShowUnacknowledgedHighlight = (message: any) => {
+    if (isAcknowledged(message)) return false
+    
+    // Students and staff should see highlight
+    if (currentUser?.role === 'student' || currentUser?.role === 'staff') return true
+    
+    // Admins should see highlight only for messages from staff
+    if (currentUser?.role === 'admin' && message.sender_role === 'staff') return true
+    
+    return false
   }
 
   return (
@@ -98,21 +128,30 @@ export default function MessageFeed({ onSelectMessage }: MessageFeedProps) {
           {visibleMessages.map((message, idx) => (
             <Card
               key={message.id}
-              className={`hover:shadow-md transition-shadow cursor-pointer animate-slideUp delay-${Math.min(idx, 12)} ${(currentUser?.role === 'student' || currentUser?.role === 'staff') && !isAcknowledged(message) ? 'ring-2 ring-yellow-200 dark:ring-yellow-700 bg-yellow-50 dark:bg-yellow-900/30' : ''}`}
+              className={`hover:shadow-md transition-shadow cursor-pointer animate-slideUp delay-${Math.min(idx, 12)} ${shouldShowUnacknowledgedHighlight(message) ? 'ring-2 ring-yellow-200 dark:ring-yellow-700 bg-yellow-50 dark:bg-yellow-900/30' : ''}`}
             >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <CardTitle className="text-lg mb-2">{message.title}</CardTitle>
-                    <div className="flex items-center space-x-4 text-sm text-gray-500">
+                    <div className="flex items-center space-x-4 text-sm text-gray-500 mb-3">
                       <div className="flex items-center space-x-1">
                         <User className="h-4 w-4" />
-                        <span>{message.sender}</span>
+                        <span className="font-medium">{message.sender}</span>
                       </div>
                       <div className="flex items-center space-x-1">
                         <Clock className="h-4 w-4" />
                         <span>{formatDate(message.created_at || '')}</span>
                       </div>
+                    </div>
+                    {/* Sender Details with Department and Role Badge */}
+                    <div className="flex items-center space-x-3">
+                      <div className="text-xs text-gray-600 dark:text-gray-400">
+                        Department: <span className="font-semibold text-gray-700 dark:text-gray-300">{getSenderDetails(message.sender, message.sender_role).department}</span>
+                      </div>
+                      <Badge className={`text-xs font-semibold border ${getRoleColor(message.sender_role)}`}>
+                        {message.sender_role.charAt(0).toUpperCase() + message.sender_role.slice(1)}
+                      </Badge>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -122,8 +161,8 @@ export default function MessageFeed({ onSelectMessage }: MessageFeedProps) {
                     {isAcknowledged(message) ? (
                       <CheckCircle className="h-5 w-5 text-green-500" />
                     ) : (
-                      // Highlight unacknowledged messages for students and staff with a small badge
-                      (currentUser?.role === 'student' || currentUser?.role === 'staff') && (
+                      // Highlight unacknowledged messages with a small badge
+                      shouldShowUnacknowledgedHighlight(message) && (
                         <Badge variant="outline" className="text-yellow-700 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700">
                           Needs Acknowledgement
                         </Badge>

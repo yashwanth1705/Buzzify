@@ -635,7 +635,7 @@ export const useStore = create<AppState>((set, get) => ({
 
           // Store acknowledgement details (ignore error if table doesn't exist)
           try {
-            await supabase
+            const { data: ackData, error: ackInsertError } = await supabase
               .from('acknowledgements')
               .insert({
                 message_id: messageId,
@@ -645,8 +645,19 @@ export const useStore = create<AppState>((set, get) => ({
                 user_role: currentUser.role,
                 acknowledged_at: new Date().toISOString(),
               })
+              .select()
+
+            if (ackInsertError) {
+              // Common causes: table doesn't exist, RLS or permission issues (401), or schema mismatch
+              console.warn('Failed to insert into acknowledgements table:', ackInsertError)
+              if (ackInsertError?.code === '401' || String(ackInsertError?.message || '').toLowerCase().includes('permission')) {
+                console.warn('[acknowledgements] Permission error (401). Check Supabase RLS policies and anon key permissions for inserting into `acknowledgements`.')
+              }
+            } else {
+              console.log('[acknowledgements] Inserted acknowledgement row:', ackData)
+            }
           } catch (ackError) {
-            console.warn('Failed to insert into acknowledgements table (might not exist):', ackError)
+            console.warn('Unexpected error inserting into acknowledgements table (may not exist or insufficient permissions):', ackError)
           }
         } catch (supabaseError) {
           console.error('Supabase operation failed:', supabaseError)
@@ -734,16 +745,69 @@ export const useStore = create<AppState>((set, get) => ({
 
   fetchMessages: async () => {
     try {
+      // Try normal fetch first
       const { data, error } = await supabase
         .from('messages')
         .select('*')
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        // If PostgREST returns an error due to missing columns in schema (400),
+        // retry with a safe reduced column list that should exist on most schemas.
+        console.warn('[fetchMessages] Initial fetch failed, retrying with safe column set:', error)
 
-      if (data) {
-        console.log('Fetched messages sample:', data[0])
-        set(() => ({ messages: data }))
+        try {
+          const safeColumns = [
+            'id', 'title', 'content', 'sender', 'sender_role', 'recipients',
+            'custom_groups', 'priority', 'attachments', 'schedule_type',
+            'schedule_date', 'schedule_time', 'total_recipients', 'read_count',
+            'acknowledged', 'created_at', 'updated_at'
+          ].join(',')
+
+          const { data: safeData, error: safeError } = await supabase
+            .from('messages')
+            .select(safeColumns)
+            .order('created_at', { ascending: false })
+
+          if (safeError) {
+            console.error('[fetchMessages] Safe retry also failed:', safeError)
+            return
+          }
+
+          if (safeData && Array.isArray(safeData) && safeData.length > 0) {
+            // Type guard: verify first item has expected Message properties
+            const firstItem = safeData[0]
+            if (firstItem && typeof firstItem === 'object' && 'id' in firstItem && 'title' in firstItem) {
+              console.log('[fetchMessages] Fetched messages (safe columns) sample:', firstItem)
+              set(() => ({ messages: safeData as unknown as Message[] }))
+              return
+            }
+          }
+          
+          if (safeData && Array.isArray(safeData) && safeData.length === 0) {
+            console.log('[fetchMessages] No messages found')
+            set(() => ({ messages: [] }))
+            return
+          }
+        } catch (retryErr) {
+          console.error('[fetchMessages] Retry with safe columns failed:', retryErr)
+          return
+        }
+      }
+
+      if (data && Array.isArray(data) && data.length > 0) {
+        // Type guard: verify first item has expected Message properties
+        const firstItem = data[0]
+        if (firstItem && typeof firstItem === 'object' && 'id' in firstItem && 'title' in firstItem) {
+          console.log('Fetched messages sample:', firstItem)
+          set(() => ({ messages: data as unknown as Message[] }))
+          return
+        }
+      }
+      
+      if (data && Array.isArray(data) && data.length === 0) {
+        console.log('[fetchMessages] No messages found (initial fetch)')
+        set(() => ({ messages: [] }))
       }
     } catch (error) {
       console.error('Error fetching messages:', error)
