@@ -275,7 +275,25 @@ export const useStore = create<AppState>((set, get) => ({
     }
 
     if (user) {
-      set({ currentUser: user, isAuthenticated: true })
+      // Normalize user shape to avoid runtime crashes when UI expects fields
+      const normalizedUser = {
+        // preserve original properties first
+        ...user,
+        // then ensure required fields exist and have safe defaults
+        id: typeof (user as any).id === 'number' ? (user as any).id : Number((user as any).id) || 0,
+        name: (user as any).name || (user as any).full_name || (user as any).email || 'Unknown User',
+        email: (user as any).email || '',
+        role: (user as any).role || 'student',
+        status: (user as any).status || 'active',
+        department: (user as any).department || 'N/A',
+        phone_number: (user as any).phone_number || '',
+      }
+
+      if (!normalizedUser.id) {
+        console.warn('Login: user has no numeric id, assigned fallback id 0. This may indicate inconsistent user schema.')
+      }
+
+      set({ currentUser: normalizedUser as any, isAuthenticated: true })
       return Promise.resolve(true)
     }
     return Promise.resolve(false)

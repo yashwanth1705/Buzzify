@@ -61,6 +61,12 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
     return currentUser && message.acknowledged_by?.includes(currentUser.id)
   }
 
+  const isMessageRead = () => {
+    return currentUser && message.read_by?.includes(currentUser.id)
+  }
+
+
+
   const readRate = message.total_recipients > 0
     ? Math.min(Math.round((message.read_count / message.total_recipients) * 100), 100)
     : 0
@@ -71,7 +77,7 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center justify-between">
         <Button variant="ghost" onClick={onBack}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Messages

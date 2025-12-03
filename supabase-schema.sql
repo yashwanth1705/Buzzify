@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS messages (
   schedule_time TIME,
   total_recipients INTEGER DEFAULT 0,
   read_count INTEGER DEFAULT 0,
+  read_by INTEGER[], -- Array of user IDs who read the message
   acknowledged BOOLEAN DEFAULT FALSE,
   acknowledged_by INTEGER[], -- Array of user IDs who acknowledged
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -79,6 +80,17 @@ CREATE TABLE IF NOT EXISTS notifications (
   message TEXT NOT NULL,
   read BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Acknowledgements table
+CREATE TABLE IF NOT EXISTS acknowledgements (
+  id SERIAL PRIMARY KEY,
+  message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL,
+  user_name VARCHAR(255),
+  user_email VARCHAR(255),
+  user_role VARCHAR(50),
+  acknowledged_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Create indexes for better performance
@@ -98,6 +110,10 @@ CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
 CREATE INDEX IF NOT EXISTS idx_notifications_message_id ON notifications(message_id);
+
+CREATE INDEX IF NOT EXISTS idx_acknowledgements_message_id ON acknowledgements(message_id);
+CREATE INDEX IF NOT EXISTS idx_acknowledgements_user_id ON acknowledgements(user_id);
+CREATE INDEX IF NOT EXISTS idx_acknowledgements_user_email ON acknowledgements(user_email);
 
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -152,6 +168,7 @@ ALTER TABLE departments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE acknowledgements ENABLE ROW LEVEL SECURITY;
 
 -- Create basic RLS policies (allow all operations for demo - customize for production)
 CREATE POLICY "Allow all operations on users" ON users FOR ALL USING (true);
@@ -159,3 +176,4 @@ CREATE POLICY "Allow all operations on departments" ON departments FOR ALL USING
 CREATE POLICY "Allow all operations on groups" ON groups FOR ALL USING (true);
 CREATE POLICY "Allow all operations on messages" ON messages FOR ALL USING (true);
 CREATE POLICY "Allow all operations on notifications" ON notifications FOR ALL USING (true);
+CREATE POLICY "Allow all operations on acknowledgements" ON acknowledgements FOR ALL USING (true);
