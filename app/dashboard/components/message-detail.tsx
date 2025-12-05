@@ -13,10 +13,55 @@ interface MessageDetailProps {
   onBack: () => void
 }
 
+function CommentForm({ currentUser, messageId, addComment, parentId = null, onSuccess }: any) {
+  const [text, setText] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const handleSubmit = async () => {
+    if (!currentUser || !text.trim()) return
+    setSubmitting(true)
+    try {
+      const created = await addComment({
+        message_id: messageId,
+        parent_comment_id: parentId,
+        user_id: currentUser.id,
+        user_name: currentUser.name,
+        user_email: currentUser.email,
+        user_role: currentUser.role,
+        content: text.trim(),
+      })
+      setText('')
+      if (onSuccess) onSuccess(created)
+    } catch (err) {
+      console.error('Failed to add comment', err)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="mt-3">
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        className="w-full p-2 rounded border bg-white dark:bg-gray-700 text-sm"
+        rows={3}
+        placeholder={currentUser ? 'Write a comment...' : 'Log in to comment'}
+      />
+      <div className="flex justify-end mt-2">
+        <button onClick={handleSubmit} disabled={!currentUser || submitting} className="px-3 py-1 bg-indigo-600 text-white rounded text-sm">
+          Post Comment
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function MessageDetail({ messageId, onBack }: MessageDetailProps) {
-  const { messages, currentUser, acknowledgeMessage, markMessageAsRead, isDarkMode } = useStore()
+  const { messages, currentUser, acknowledgeMessage, markMessageAsRead, isDarkMode, comments, fetchComments, addComment, deleteComment, markNotificationsAsReadForMessage } = useStore()
   const hasMarkedAsRead = useRef(false)
   const [acknowledgeAnimating, setAcknowledgeAnimating] = useState(false)
+  const [showRecipients, setShowRecipients] = useState(false)
 
   const message = messages.find(m => m.id === messageId)
 
@@ -25,8 +70,66 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
     if (currentUser && message && !hasMarkedAsRead.current) {
       hasMarkedAsRead.current = true
       markMessageAsRead(messageId)
+      // mark notifications for this message as read
+      try { markNotificationsAsReadForMessage(messageId) } catch (e) { /* noop */ }
     }
-  }, [currentUser, message, messageId, markMessageAsRead])
+    // load comments for messages
+    fetchComments()
+  }, [currentUser, message, messageId, markMessageAsRead, fetchComments, markNotificationsAsReadForMessage])
+
+  // Build nested comment tree
+  const commentsForMessage = comments.filter((c: any) => c.message_id === messageId)
+
+  const buildTree = (list: any[]) => {
+    const map = new Map<number, any>()
+    const roots: any[] = []
+    list.forEach((item) => map.set(item.id, { ...item, children: [] }))
+    list.forEach((item) => {
+      const node = map.get(item.id)
+      if (item.parent_comment_id) {
+        const parent = map.get(item.parent_comment_id)
+        if (parent) parent.children.push(node)
+        else roots.push(node)
+      } else {
+        roots.push(node)
+      }
+    })
+    return roots
+  }
+
+  const commentTree = buildTree(commentsForMessage)
+
+  const [replyTo, setReplyTo] = useState<number | null>(null)
+
+  const renderNode = (node: any, depth = 0) => {
+    return (
+      <div key={node.id} className="border-b last:border-b-0 pb-2 pl-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="text-sm font-medium">{node.user_name} <span className="text-xs text-gray-400">· {node.user_role}</span></div>
+            <div className="text-xs text-gray-400">{new Date(node.created_at).toLocaleString()}</div>
+          </div>
+          <div className="text-sm flex items-center gap-2">
+            <button className="text-indigo-500 text-xs" onClick={() => setReplyTo(node.id)}>Reply</button>
+            {currentUser?.id === node.user_id && (
+              <button className="text-red-500 text-xs" onClick={() => deleteComment(node.id)}>Delete</button>
+            )}
+          </div>
+        </div>
+        <div className="mt-2 text-sm whitespace-pre-wrap">{node.content}</div>
+        {replyTo === node.id && (
+          <div className="mt-2">
+            <CommentForm currentUser={currentUser} messageId={messageId} addComment={addComment} parentId={node.id} onSuccess={() => setReplyTo(null)} />
+          </div>
+        )}
+        {node.children && node.children.length > 0 && (
+          <div className="mt-2 space-y-2">
+            {node.children.map((child: any) => renderNode(child, depth + 1))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   if (!message) {
     return (
@@ -74,6 +177,42 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
   const acknowledgeRate = message.total_recipients > 0
     ? Math.round(((message.acknowledged_by?.length || 0) / message.total_recipients) * 100)
     : 0
+
+  // Compute recipient users for this message (admin/staff only view)
+  const recipientUsers = (() => {
+    try {
+      const state = useStore.getState()
+      const allUsers = state.users || []
+      const groups = state.groups || []
+
+      if (message.recipients === 'all') {
+        return allUsers
+      }
+      if (message.recipients === 'students') {
+        return allUsers.filter(u => u.role === 'student')
+      }
+      if (message.recipients === 'staff') {
+        return allUsers.filter(u => u.role === 'staff')
+      }
+      if (message.recipients === 'admins') {
+        return allUsers.filter(u => u.role === 'admin')
+      }
+      if ((message.recipients === 'group' || message.custom_groups) && message.custom_groups?.length) {
+        const targetEmails = new Set<string>()
+        message.custom_groups.forEach((groupId: number) => {
+          const g = groups.find(gr => gr.id === groupId)
+          if (g && g.members) {
+            g.members.forEach((email: string) => targetEmails.add(email))
+          }
+        })
+        return allUsers.filter(u => targetEmails.has(u.email))
+      }
+      return []
+    } catch (e) {
+      console.error('Error computing recipient users:', e)
+      return []
+    }
+  })()
 
   return (
     <div className="space-y-6">
@@ -149,6 +288,75 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
             </div>
           )}
 
+          {/* Comments Section */}
+          <div>
+            <h3 className="font-semibold mb-2">Comments</h3>
+            <div className={`space-y-3 p-3 rounded-md ${isDarkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
+              {/* Build a comment tree so replies are nested */}
+              {(() => {
+                const tree: any[] = []
+                const map: Record<string, any> = {}
+                comments.filter(c => c.message_id === messageId).forEach((c: any) => {
+                  map[c.id] = { ...c, replies: [] }
+                })
+                Object.values(map).forEach((c: any) => {
+                  if (c.parent_comment_id) {
+                    const parent = map[c.parent_comment_id]
+                    if (parent) parent.replies.push(c)
+                    else tree.push(c) // orphaned reply
+                  } else {
+                    tree.push(c)
+                  }
+                })
+
+                if (tree.length === 0) return (<p className="text-sm text-gray-500">No comments yet</p>)
+
+                const renderNode = (node: any, depth = 0) => (
+                  <div key={node.id} className={`border-b last:border-b-0 pb-2 pl-${Math.min(depth * 4, 12)}`}>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="text-sm font-medium">{node.user_name} <span className="text-xs text-gray-400">· {node.user_role}</span></div>
+                        <div className="text-xs text-gray-400">{new Date(node.created_at).toLocaleString()}</div>
+                      </div>
+                      <div className="text-sm">
+                        {currentUser?.id === node.user_id && (
+                          <button className="text-red-500 text-xs" onClick={() => deleteComment(node.id)}>Delete</button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-2 text-sm whitespace-pre-wrap">{node.content}</div>
+                    <div className="mt-2 text-sm flex space-x-2">
+                      <button className="text-blue-500 text-xs" onClick={() => setReplyTo(node.id)}>Reply</button>
+                    </div>
+                    {replyTo === node.id && (
+                      <div className="mt-2">
+                        <CommentForm
+                          currentUser={currentUser}
+                          messageId={messageId}
+                          parentId={node.id}
+                          addComment={addComment}
+                          onSuccess={() => setReplyTo(null)}
+                        />
+                      </div>
+                    )}
+                    {node.replies && node.replies.map((r: any) => renderNode(r, depth + 1))}
+                  </div>
+                )
+
+                return tree.map(n => renderNode(n, 0))
+              })()}
+
+              {/* Root comment form */}
+              <div className="mt-3">
+                <CommentForm
+                  currentUser={currentUser}
+                  messageId={messageId}
+                  addComment={addComment}
+                />
+              </div>
+            </div>
+          </div>
+
           {(currentUser?.role === 'admin' || currentUser?.role === 'staff') && (
             <div>
               <h3 className="font-semibold mb-2">Message Statistics</h3>
@@ -176,6 +384,31 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
                   <p className={`text-2xl font-bold ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>{acknowledgeRate}%</p>
                   <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{message.acknowledged_by?.length || 0} people</p>
                 </div>
+              </div>
+              {/* Recipients list (admin/staff) */}
+              <div className="mt-4">
+                <Button size="sm" variant="ghost" onClick={() => setShowRecipients(!showRecipients)}>
+                  {showRecipients ? 'Hide Recipients' : 'View Recipients'}
+                </Button>
+                {showRecipients && (
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 max-h-56 overflow-auto">
+                    {recipientUsers.length === 0 ? (
+                      <p className="text-sm text-gray-500">No recipients found</p>
+                    ) : (
+                      recipientUsers.map((u: any) => (
+                        <div key={u.id} className={`p-2 rounded-md ${isDarkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="font-medium">{u.name}</div>
+                              <div className="text-xs text-gray-400">{u.email} · {u.role}</div>
+                            </div>
+                            <Badge className="text-xs">{u.department || ''}</Badge>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}

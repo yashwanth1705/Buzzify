@@ -91,6 +91,20 @@ export interface Notification {
   created_at?: string
 }
 
+export interface Comment {
+  id: number
+  message_id: number
+  parent_comment_id?: number | null
+  user_id?: number
+  user_name?: string
+  user_email?: string
+  user_role?: string
+  content: string
+  mentions?: string[]
+  created_at?: string
+  updated_at?: string
+}
+
 export interface Course {
   id: number
   name: string

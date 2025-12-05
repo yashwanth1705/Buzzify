@@ -219,6 +219,7 @@ export default function AdminPanel() {
     // Refresh all data
     await Promise.all([
       fetchDepartments(),
+      fetchUsers(),  // Also refresh users since department names may have changed
       fetchCourses(),
       fetchSubCourses()
     ])
@@ -962,7 +963,7 @@ export default function AdminPanel() {
                       <div key={dept.id} className="flex items-center space-x-2">
                         <input
                           type="checkbox"
-                          id={`dept-${dept.id}`}
+                          id={`add-group-dept-${dept.id}`}
                           checked={groupForm.departments.includes(dept.name)}
                           onChange={(e) => {
                             if (e.target.checked) {
@@ -978,7 +979,7 @@ export default function AdminPanel() {
                             }
                           }}
                         />
-                        <label htmlFor={`dept-${dept.id}`} className={`text-sm cursor-pointer transition-colors duration-300 ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
+                        <label htmlFor={`add-group-dept-${dept.id}`} className={`text-sm cursor-pointer transition-colors duration-300 ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
                           {dept.name}
                         </label>
                       </div>
@@ -1038,7 +1039,7 @@ export default function AdminPanel() {
                         <div key={user.id} className="flex items-center space-x-2 py-2">
                           <input
                             type="checkbox"
-                            id={`member-${user.id}`}
+                            id={`add-group-member-${user.id}`}
                             checked={groupForm.members.includes(user.email)}
                             onChange={(e) => {
                               if (e.target.checked) {
@@ -1054,7 +1055,7 @@ export default function AdminPanel() {
                               }
                             }}
                           />
-                          <label htmlFor={`member-${user.id}`} className="text-sm cursor-pointer">
+                          <label htmlFor={`add-group-member-${user.id}`} className="text-sm cursor-pointer">
                             {user.name} ({user.email})
                           </label>
                         </div>
@@ -1082,230 +1083,6 @@ export default function AdminPanel() {
               <Button onClick={handleAddGroup}>
                 {editingGroup ? 'Update Group' : 'Create Group'}
               </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add/Edit Group Dialog */}
-      < Dialog open={showAddGroupDialog} onOpenChange={setShowAddGroupDialog} >
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {editingGroup ? 'Edit Group' : 'Create New Group'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Group Name *</label>
-                <Input
-                  value={groupForm.name}
-                  onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
-                  placeholder="Enter group name"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Departments (Select one or more)</label>
-                <div className={`border rounded-md p-3 max-h-40 overflow-y-auto transition-colors duration-300 space-y-2 ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'}`}>
-                  {departments.length > 0 ? (
-                    departments.map((dept) => (
-                      <div key={dept.id} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id={`dept-${dept.id}`}
-                          checked={groupForm.departments.includes(dept.name)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setGroupForm({
-                                ...groupForm,
-                                departments: [...groupForm.departments, dept.name],
-                              })
-                            } else {
-                              setGroupForm({
-                                ...groupForm,
-                                departments: groupForm.departments.filter((d) => d !== dept.name),
-                              })
-                            }
-                          }}
-                        />
-                        <label htmlFor={`dept-${dept.id}`} className={`text-sm cursor-pointer transition-colors duration-300 ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
-                          {dept.name}
-                        </label>
-                      </div>
-                    ))
-                  ) : (
-                    <p className={`text-sm transition-colors duration-300 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>No departments available</p>
-                  )}
-                </div>
-                <p className={`text-xs text-gray-500 mt-2 transition-colors duration-300 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  Selected: {groupForm.departments.length} department{groupForm.departments.length !== 1 ? 's' : ''}
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Description</label>
-                <Input
-                  value={groupForm.description}
-                  onChange={(e) => setGroupForm({ ...groupForm, description: e.target.value })}
-                  placeholder="Enter group description"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Members</label>
-
-                {/* Search and Filter */}
-                <div className="space-y-3 mb-3">
-                  <div className="relative">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search members..."
-                      value={memberSearch}
-                      onChange={(e) => setMemberSearch(e.target.value)}
-                      className="pl-8"
-                    />
-                  </div>
-
-                  <Tabs value={memberTab} onValueChange={setMemberTab} className="w-full">
-                    <TabsList className="grid w-full grid-cols-3">
-                      <TabsTrigger value="all">All</TabsTrigger>
-                      <TabsTrigger value="student">Students</TabsTrigger>
-                      <TabsTrigger value="staff">Staff</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                </div>
-
-                <div className="flex flex-wrap gap-2 mb-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="transition-all duration-200 hover:scale-105 active:scale-95 border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-900/20"
-                    onClick={() => {
-                      const departmentUsers = users.filter((user) => groupForm.departments.includes(user.department || ''))
-                      setGroupForm({
-                        ...groupForm,
-                        members: departmentUsers.map((user) => user.email),
-                      })
-                    }}
-                    disabled={groupForm.departments.length === 0}
-                  >
-                    Select All
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="transition-all duration-200 hover:scale-105 active:scale-95 border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-900/20"
-                    onClick={() => {
-                      const studentUsers = users.filter((user) => groupForm.departments.includes(user.department || '') && user.role === 'student')
-                      setGroupForm({
-                        ...groupForm,
-                        members: studentUsers.map((user) => user.email),
-                      })
-                    }}
-                    disabled={groupForm.departments.length === 0}
-                  >
-                    Select Students
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="transition-all duration-200 hover:scale-105 active:scale-95 border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-900/20"
-                    onClick={() => {
-                      const staffUsers = users.filter((user) => groupForm.departments.includes(user.department || '') && user.role === 'staff')
-                      setGroupForm({
-                        ...groupForm,
-                        members: staffUsers.map((user) => user.email),
-                      })
-                    }}
-                    disabled={groupForm.departments.length === 0}
-                  >
-                    Select Staff
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="transition-all duration-200 hover:scale-105 active:scale-95 border-red-200 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/20"
-                    onClick={() => {
-                      setGroupForm({
-                        ...groupForm,
-                        members: [],
-                      })
-                    }}
-                  >
-                    Deselect All
-                  </Button>
-                </div>
-                <div className={`border rounded-md p-3 max-h-60 overflow-y-auto transition-colors duration-300 ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-300'
-                  }`}>
-                  {groupForm.departments.length > 0 ? (
-                    users
-                      .filter((user) => {
-                        const inDepartment = groupForm.departments.includes(user.department || '')
-                        const matchesSearch = user.name.toLowerCase().includes(memberSearch.toLowerCase()) ||
-                          user.email.toLowerCase().includes(memberSearch.toLowerCase())
-                        const matchesRole = memberTab === 'all' || user.role === memberTab
-                        return inDepartment && matchesSearch && matchesRole
-                      })
-                      .map((user) => (
-                        <div key={user.id} className="flex items-center space-x-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded px-2">
-                          <input
-                            type="checkbox"
-                            id={`member-${user.id}`}
-                            checked={groupForm.members.includes(user.email)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setGroupForm({
-                                  ...groupForm,
-                                  members: [...groupForm.members, user.email],
-                                })
-                              } else {
-                                setGroupForm({
-                                  ...groupForm,
-                                  members: groupForm.members.filter((email) => email !== user.email),
-                                })
-                              }
-                            }}
-                            className="rounded border-gray-300 text-primary focus:ring-primary"
-                          />
-                          <label htmlFor={`member-${user.id}`} className="text-sm cursor-pointer flex items-center gap-2 flex-1">
-                            <span>{user.name} ({user.email})</span>
-                            <Badge
-                              variant="secondary"
-                              className={`text-[10px] h-5 px-2 capitalize border ${user.role === 'admin'
-                                ? 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900 dark:text-red-300 dark:border-red-800'
-                                : user.role === 'staff'
-                                  ? 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900 dark:text-yellow-300 dark:border-yellow-800'
-                                  : 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:border-blue-800'
-                                }`}
-                            >
-                              {user.role}
-                            </Badge>
-                          </label>
-                        </div>
-                      ))
-                  ) : (
-                    <p className="text-sm text-gray-500">Please select at least one department first</p>
-                  )}
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Selected: {groupForm.members.length} member{groupForm.members.length !== 1 ? 's' : ''}
-                </p>
-              </div>
-              <div className="flex justify-end space-x-4">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowAddGroupDialog(false)
-                    setEditingGroup(null)
-                    resetGroupForm()
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={handleAddGroup}>
-                  {editingGroup ? 'Update Group' : 'Create Group'}
-                </Button>
-              </div>
             </div>
           </div>
         </DialogContent>

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Notification, Course, SubCourse } from './supabase'
+import type { Notification, Course, SubCourse, Comment } from './supabase'
 import { User, Message, Group, Department, supabase } from './supabase'
 
 interface AppState {
@@ -42,6 +42,8 @@ interface AppState {
 
   // Notifications
   notifications: Notification[]
+  // Comments
+  comments: Comment[]
 
   // Actions
   login: (email: string, password: string, role?: string) => Promise<boolean>
@@ -56,6 +58,11 @@ interface AppState {
 
   // Message Actions
   addMessage: (message: Omit<Message, 'id' | 'created_at' | 'updated_at'>) => Promise<void>
+  // Comment Actions
+  fetchComments: () => Promise<void>
+  addComment: (commentData: Omit<Comment, 'id' | 'created_at' | 'updated_at'>) => Promise<Comment | null>
+  updateComment: (id: number, commentData: Partial<Comment>) => Promise<void>
+  deleteComment: (id: number) => Promise<void>
   acknowledgeMessage: (messageId: number, userId: number) => Promise<void>
   markMessageAsRead: (messageId: number) => void
   fetchMessages: () => Promise<void>
@@ -239,6 +246,7 @@ export const useStore = create<AppState>((set, get) => ({
   courses: [],
   subCourses: [],
   notifications: [],
+  comments: [],
 
   // Authentication Actions
   login: async (email: string, password: string, role?: string) => {
@@ -960,30 +968,79 @@ export const useStore = create<AppState>((set, get) => ({
 
   updateDepartment: async (id, departmentData) => {
     try {
+      // Get the old department name before updating
+      const state = get()
+      const oldDepartment = state.departments.find(d => d.id === id)
+      const oldDeptName = oldDepartment?.name
+      const newDeptName = departmentData.name
+
+      console.log(`Updating department: "${oldDeptName}" → "${newDeptName}"`)
+
+      // Update the department in Supabase
       const { error } = await supabase
         .from('departments')
         .update({ ...departmentData, updated_at: new Date().toISOString() })
         .eq('id', id)
 
-      if (error) throw error
+      if (error) {
+        console.warn('Error updating department in Supabase:', error)
+      }
 
-      set((state) => ({
-        departments: state.departments.map((department) =>
-          department.id === id
-            ? { ...department, ...departmentData, updated_at: new Date().toISOString() }
-            : department
-        ),
-      }))
+      // If department name changed, update all users with the old department name
+      if (oldDeptName && newDeptName && oldDeptName !== newDeptName) {
+        console.log(`Updating users with department: "${oldDeptName}"`)
+        
+        // Update in Supabase
+        const { error: usersError } = await supabase
+          .from('users')
+          .update({ department: newDeptName, updated_at: new Date().toISOString() })
+          .eq('department', oldDeptName)
+
+        if (usersError) {
+          console.warn('Error updating users with new department name:', usersError)
+        } else {
+          console.log(`Successfully updated users in Supabase`)
+        }
+      }
+
+      // Update local state
+      set((state) => {
+        const updatedUsers = state.users.map((user) => {
+          if (user.department === oldDeptName && newDeptName) {
+            console.log(`Updating user ${user.name}: "${user.department}" → "${newDeptName}"`)
+            return { ...user, department: newDeptName, updated_at: new Date().toISOString() }
+          }
+          return user
+        })
+
+        return {
+          departments: state.departments.map((department) =>
+            department.id === id
+              ? { ...department, ...departmentData, updated_at: new Date().toISOString() }
+              : department
+          ),
+          users: updatedUsers,
+        }
+      })
     } catch (error) {
       console.error('Error updating department:', error)
-      // Fallback to local state
-      set((state) => ({
-        departments: state.departments.map((department) =>
-          department.id === id
-            ? { ...department, ...departmentData, updated_at: new Date().toISOString() }
-            : department
-        ),
-      }))
+      // Fallback to local state update
+      set((state) => {
+        const oldDeptName = state.departments.find(d => d.id === id)?.name
+        const newDeptName = departmentData.name
+        return {
+          departments: state.departments.map((department) =>
+            department.id === id
+              ? { ...department, ...departmentData, updated_at: new Date().toISOString() }
+              : department
+          ),
+          users: state.users.map((user) =>
+            user.department === oldDeptName && newDeptName
+              ? { ...user, department: newDeptName }
+              : user
+          ),
+        }
+      })
     }
   },
 
@@ -1116,6 +1173,146 @@ export const useStore = create<AppState>((set, get) => ({
     )
   },
 
+  // Comment Actions
+  fetchComments: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('comments')
+        .select('*')
+        .order('created_at', { ascending: true })
+
+      if (error) {
+        console.warn('Error fetching comments from Supabase:', error)
+      } else if (data) {
+        set(() => ({ comments: data as Comment[] }))
+      }
+    } catch (error) {
+      console.error('Error fetching comments:', error)
+    }
+  },
+
+  addComment: async (commentData) => {
+    try {
+      // Try Supabase insert first
+      let savedComment: Comment | null = null
+      try {
+        const { data, error } = await supabase
+          .from('comments')
+          .insert([commentData])
+          .select()
+          .single()
+
+        if (error) {
+          console.warn('Supabase insert comment failed, falling back to local', error)
+        } else {
+          savedComment = data as Comment
+        }
+      } catch (supabaseError) {
+        console.warn('Supabase unavailable for comments, will use local state', supabaseError)
+      }
+
+      const newComment: Comment = savedComment || {
+        id: Math.max(...get().comments.map(c => c.id), 0) + 1,
+        ...commentData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+
+      // Add to local state
+      set((state) => ({ comments: [...state.comments, newComment] }))
+
+      // Notify message sender (if not the commenter)
+      try {
+        const message = get().messages.find(m => m.id === newComment.message_id)
+        const currentUser = get().currentUser
+        if (message && currentUser && message.sender !== currentUser.email) {
+          await get().addNotification({
+            message_id: message.id,
+            user_id: message.sender && get().users.find(u => u.email === message.sender)?.id ? get().users.find(u => u.email === message.sender)!.id : 0,
+            message: `New comment on: ${message.title}`,
+            read: false,
+          })
+        }
+      } catch (notifyErr) {
+        console.warn('Failed to create notification for comment:', notifyErr)
+      }
+
+      // Handle role mentions like @staff or @students
+      try {
+        const mentions = (newComment.content || '').match(/@(staff|students|admins)\b/g)
+        if (mentions && mentions.length > 0) {
+          const roles = Array.from(new Set(mentions.map(m => m.replace('@', ''))))
+          const usersToNotify: User[] = []
+          for (const role of roles) {
+            if (role === 'staff' || role === 'students' || role === 'admins') {
+              const roleKey = role === 'students' ? 'student' : role
+              usersToNotify.push(...get().users.filter(u => u.role === roleKey))
+            }
+          }
+          for (const u of usersToNotify) {
+            await get().addNotification({
+              message_id: newComment.message_id,
+              user_id: u.id,
+              message: `You were mentioned in a comment`,
+              read: false,
+            })
+          }
+        }
+      } catch (mentionErr) {
+        console.warn('Failed to create mention notifications:', mentionErr)
+      }
+
+      return newComment
+    } catch (error) {
+      console.error('Failed to add comment:', error)
+      throw error
+    }
+  },
+
+  updateComment: async (id, commentData) => {
+    try {
+      // Update local state
+      set((state) => ({
+        comments: state.comments.map((c) => c.id === id ? { ...c, ...commentData, updated_at: new Date().toISOString() } : c)
+      }))
+
+      // Try Supabase
+      try {
+        const { error } = await supabase
+          .from('comments')
+          .update({ ...commentData, updated_at: new Date().toISOString() })
+          .eq('id', id)
+
+        if (error) console.warn('Supabase error updating comment:', error)
+      } catch (supabaseError) {
+        console.warn('Supabase unavailable when updating comment', supabaseError)
+      }
+    } catch (error) {
+      console.error('Failed to update comment locally:', error)
+    }
+  },
+
+  deleteComment: async (id) => {
+    try {
+      // Remove from local state
+      set((state) => ({ comments: state.comments.filter(c => c.id !== id) }))
+
+      // Try Supabase
+      try {
+        const { error } = await supabase
+          .from('comments')
+          .delete()
+          .eq('id', id)
+
+        if (error) console.warn('Supabase error deleting comment:', error)
+      } catch (supabaseError) {
+        console.warn('Supabase unavailable when deleting comment', supabaseError)
+      }
+    } catch (error) {
+      console.error('Failed to delete comment:', error)
+    }
+  },
+
   // Course Actions
   addCourse: async (courseData) => {
     try {
@@ -1132,11 +1329,22 @@ export const useStore = create<AppState>((set, get) => ({
         throw new Error('Created by is required')
       }
       
+      // Generate a default code if empty (from course name first letters)
+      const courseCode = courseData.code && courseData.code.trim() 
+        ? courseData.code.trim() 
+        : courseData.name.split(' ').map(w => w[0]).join('').toUpperCase() || 'COURSE'
+      
       console.log('[addCourse] Validation passed, inserting to Supabase...')
+      
+      const dataToInsert = {
+        ...courseData,
+        code: courseCode,
+        description: courseData.description || null
+      }
       
       const { data, error } = await supabase
         .from('courses')
-        .insert([courseData])
+        .insert([dataToInsert])
         .select()
 
       console.log('[addCourse] Supabase response received')

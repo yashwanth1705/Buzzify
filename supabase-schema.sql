@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS groups (
   name VARCHAR(255) NOT NULL,
   description TEXT,
   department VARCHAR(255),
+  departments TEXT[], -- Array of department names (for multi-department groups)
   created_by VARCHAR(255) NOT NULL,
   members TEXT[], -- Array of email addresses
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -129,6 +130,27 @@ CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECU
 CREATE TRIGGER update_departments_updated_at BEFORE UPDATE ON departments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_groups_updated_at BEFORE UPDATE ON groups FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_messages_updated_at BEFORE UPDATE ON messages FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Comments table for message replies/threads
+CREATE TABLE IF NOT EXISTS comments (
+  id SERIAL PRIMARY KEY,
+  message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+  parent_comment_id INTEGER REFERENCES comments(id) ON DELETE CASCADE,
+  user_id INTEGER,
+  user_name VARCHAR(255),
+  user_email VARCHAR(255),
+  user_role VARCHAR(50),
+  content TEXT NOT NULL,
+  mentions TEXT[],
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_comments_message_id ON comments(message_id);
+CREATE INDEX IF NOT EXISTS idx_comments_user_id ON comments(user_id);
+
+-- Simple policy to allow inserts/selects (adjust for production security)
+CREATE POLICY IF NOT EXISTS "Allow all operations on comments" ON comments FOR ALL USING (true);
 
 -- Insert demo data
 -- Demo departments
