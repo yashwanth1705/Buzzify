@@ -5,6 +5,7 @@ import { Search, X, FilterIcon } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useStore } from '@/lib/store'
 
@@ -14,7 +15,7 @@ interface MessageSearchFilterProps {
 }
 
 export default function MessageSearchFilter({ messages, onFiltered }: MessageSearchFilterProps) {
-  const { users } = useStore()
+  const { users, currentUser, notifications } = useStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [filters, setFilters] = useState({
     sender: 'all',
@@ -22,12 +23,12 @@ export default function MessageSearchFilter({ messages, onFiltered }: MessageSea
     status: 'all',
     sortBy: 'newest'
   })
-  const [showFilters, setShowFilters] = useState(false)
 
   const senders = useMemo(() => {
     const uniqueSenders = [...new Set(messages.map(m => m.sender || '').filter(Boolean))]
     return uniqueSenders.sort()
   }, [messages])
+
   // Compute filtered messages (pure) and call onFiltered in an effect
   const filteredMessages = useMemo(() => {
     let filtered = Array.isArray(messages) ? messages.slice() : []
@@ -53,9 +54,18 @@ export default function MessageSearchFilter({ messages, onFiltered }: MessageSea
     }
 
     // Status filter
-    if (filters.status !== 'all') {
-      // Status filtering would need additional data from store
-      // For now, we'll skip this as it needs acknowledgement tracking
+    if (filters.status !== 'all' && currentUser) {
+      if (filters.status === 'unread') {
+        filtered = filtered.filter(msg => !msg.read_by?.includes(currentUser.id))
+      } else if (filters.status === 'unacknowledged') {
+        filtered = filtered.filter(msg => !msg.acknowledged_by?.includes(currentUser.id))
+      } else if (filters.status === 'new_comments') {
+        // Filter messages that have unread notifications associated with them
+        const unreadMsgIds = notifications
+          .filter(n => !n.read && n.user_id === currentUser.id)
+          .map(n => n.message_id)
+        filtered = filtered.filter(msg => unreadMsgIds.includes(msg.id))
+      }
     }
 
     // Sorting
@@ -74,13 +84,13 @@ export default function MessageSearchFilter({ messages, onFiltered }: MessageSea
     })
 
     return filtered
-  }, [searchQuery, filters, messages])
+  }, [searchQuery, filters, messages, currentUser, notifications])
 
   useEffect(() => {
     onFiltered(filteredMessages)
   }, [filteredMessages, onFiltered])
 
-  const hasActiveFilters = searchQuery || (filters.sender && filters.sender !== 'all') || filters.priority !== 'all' || filters.sortBy !== 'newest'
+  const hasActiveFilters = searchQuery || (filters.sender && filters.sender !== 'all') || filters.priority !== 'all' || filters.status !== 'all' || filters.sortBy !== 'newest'
 
   const handleReset = () => {
     setSearchQuery('')
@@ -92,107 +102,39 @@ export default function MessageSearchFilter({ messages, onFiltered }: MessageSea
     })
   }
 
+  const statusOptions = [
+    { value: 'all', label: 'All Messages' },
+    { value: 'unread', label: 'Unread' },
+    { value: 'unacknowledged', label: 'Unacknowledged' },
+    { value: 'new_comments', label: 'New Comments' },
+  ]
+
   return (
-    <div className="space-y-4">
-      {/* Search Bar */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <Input
-          placeholder="Search by title, content, or sender..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10 pr-10"
-        />
-        {searchQuery && (
-          <button
-            onClick={() => setSearchQuery('')}
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            title="Clear search"
-            aria-label="Clear search query"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-
-      {/* Filter Toggle Button */}
-      <div className="flex items-center justify-between">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center gap-2"
-        >
-          <FilterIcon className="h-4 w-4" />
-          Filters
-          {hasActiveFilters && (
-            <span className="ml-2 inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-500 text-white text-xs">
-              {(filters.sender && filters.sender !== 'all' ? 1 : 0) + (filters.priority !== 'all' ? 1 : 0) + (filters.sortBy !== 'newest' ? 1 : 0)}
-            </span>
-          )}
-        </Button>
-
-        {hasActiveFilters && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleReset}
-            className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-          >
-            Reset Filters
-          </Button>
-        )}
-      </div>
-
-      {/* Expandable Filters */}
-      {showFilters && (
-        <div className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-4">
-          {/* Sender Filter */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Filter by Sender
-            </label>
-            <Select value={filters.sender} onValueChange={(value) => setFilters({ ...filters, sender: value })}>
-              <SelectTrigger>
-                <SelectValue placeholder="All senders" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All senders</SelectItem>
-                {senders.map(sender => (
-                  <SelectItem key={sender} value={sender}>
-                    {sender}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+    <Card className="border-none shadow-sm bg-white dark:bg-gray-900">
+      <CardContent className="p-4 space-y-4">
+        {/* Top Row: Search and Sort */}
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search messages..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
-
-          {/* Priority Filter */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Filter by Priority
-            </label>
-            <Select value={filters.priority} onValueChange={(value) => setFilters({ ...filters, priority: value })}>
-              <SelectTrigger>
-                <SelectValue placeholder="All priorities" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All priorities</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Sort Options */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Sort By
-            </label>
+          <div className="w-full md:w-48">
             <Select value={filters.sortBy} onValueChange={(value) => setFilters({ ...filters, sortBy: value })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sort by..." />
+              <SelectTrigger className="bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="newest">Newest First</SelectItem>
@@ -202,50 +144,67 @@ export default function MessageSearchFilter({ messages, onFiltered }: MessageSea
               </SelectContent>
             </Select>
           </div>
+        </div>
 
-          {/* Active Filters Display */}
+        {/* Middle Row: Status Pills (Horizontal Scroll) */}
+        <div className="flex overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 gap-2 scrollbar-hide">
+          {statusOptions.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => setFilters({ ...filters, status: option.value })}
+              className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-medium transition-all ${filters.status === option.value
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Bottom Row: Advanced Filters (Collapsible or Inline) */}
+        <div className="flex flex-wrap gap-3 pt-2 border-t border-gray-100 dark:border-gray-800">
+          <div className="flex items-center gap-2">
+            <FilterIcon className="h-4 w-4 text-gray-400" />
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Filters:</span>
+          </div>
+
+          <Select value={filters.sender} onValueChange={(value) => setFilters({ ...filters, sender: value })}>
+            <SelectTrigger className="h-8 w-[180px] text-xs bg-transparent border-gray-200 dark:border-gray-700">
+              <SelectValue placeholder="Sender" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Senders</SelectItem>
+              {senders.map(sender => (
+                <SelectItem key={sender} value={sender}>{sender}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filters.priority} onValueChange={(value) => setFilters({ ...filters, priority: value })}>
+            <SelectTrigger className="h-8 w-[140px] text-xs bg-transparent border-gray-200 dark:border-gray-700">
+              <SelectValue placeholder="Priority" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Priorities</SelectItem>
+              <SelectItem value="high">High Priority</SelectItem>
+              <SelectItem value="medium">Medium Priority</SelectItem>
+              <SelectItem value="low">Low Priority</SelectItem>
+            </SelectContent>
+          </Select>
+
           {hasActiveFilters && (
-            <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-              {filters.sender && filters.sender !== 'all' && (
-                <Badge variant="secondary" className="flex items-center gap-2">
-                  Sender: {filters.sender}
-                  <button 
-                    onClick={() => setFilters({ ...filters, sender: 'all' })}
-                    title="Remove sender filter"
-                    aria-label="Remove sender filter"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              )}
-              {filters.priority !== 'all' && (
-                <Badge variant="secondary" className="flex items-center gap-2">
-                  Priority: {filters.priority}
-                  <button 
-                    onClick={() => setFilters({ ...filters, priority: 'all' })}
-                    title="Remove priority filter"
-                    aria-label="Remove priority filter"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              )}
-              {filters.sortBy !== 'newest' && (
-                <Badge variant="secondary" className="flex items-center gap-2">
-                  Sort: {filters.sortBy}
-                  <button 
-                    onClick={() => setFilters({ ...filters, sortBy: 'newest' })}
-                    title="Reset sort order"
-                    aria-label="Reset sort order"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              )}
-            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleReset}
+              className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 ml-auto"
+            >
+              Reset All
+            </Button>
           )}
         </div>
-      )}
-    </div>
+      </CardContent>
+    </Card>
   )
 }

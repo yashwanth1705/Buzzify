@@ -809,7 +809,7 @@ export const useStore = create<AppState>((set, get) => ({
               return
             }
           }
-          
+
           if (safeData && Array.isArray(safeData) && safeData.length === 0) {
             console.log('[fetchMessages] No messages found')
             set(() => ({ messages: [] }))
@@ -830,7 +830,7 @@ export const useStore = create<AppState>((set, get) => ({
           return
         }
       }
-      
+
       if (data && Array.isArray(data) && data.length === 0) {
         console.log('[fetchMessages] No messages found (initial fetch)')
         set(() => ({ messages: [] }))
@@ -989,7 +989,7 @@ export const useStore = create<AppState>((set, get) => ({
       // If department name changed, update all users with the old department name
       if (oldDeptName && newDeptName && oldDeptName !== newDeptName) {
         console.log(`Updating users with department: "${oldDeptName}"`)
-        
+
         // Update in Supabase
         const { error: usersError } = await supabase
           .from('users')
@@ -1086,17 +1086,19 @@ export const useStore = create<AppState>((set, get) => ({
   // Notification Actions
   addNotification: async (notificationData) => {
     try {
-      // Dedup: check local state first
-      const existsLocally = get().notifications.some(
-        (n) => n.message_id === notificationData.message_id && n.user_id === notificationData.user_id
-      )
+      // Dedup removed to allow multiple notifications for the same message (e.g. multiple comments)
+      // const existsLocally = get().notifications.some(
+      //   (n) => n.message_id === notificationData.message_id && n.user_id === notificationData.user_id
+      // )
 
-      if (existsLocally) {
-        console.info('Notification dedup: found locally, skipping', notificationData)
-        return
-      }
+      // if (existsLocally) {
+      //   console.info('Notification dedup: found locally, skipping', notificationData)
+      //   return
+      // }
 
       // Check Supabase for existing notification for same message + user
+      // We also skip this check to allow multiple notifications
+      /*
       try {
         const { data: existing, error: selectError } = await supabase
           .from('notifications')
@@ -1114,6 +1116,7 @@ export const useStore = create<AppState>((set, get) => ({
       } catch (err) {
         console.warn('Supabase not available when checking notification dedup, continuing with local only check')
       }
+      */
 
       // Try to persist to Supabase
       try {
@@ -1225,13 +1228,68 @@ export const useStore = create<AppState>((set, get) => ({
       try {
         const message = get().messages.find(m => m.id === newComment.message_id)
         const currentUser = get().currentUser
-        if (message && currentUser && message.sender !== currentUser.email) {
-          await get().addNotification({
-            message_id: message.id,
-            user_id: message.sender && get().users.find(u => u.email === message.sender)?.id ? get().users.find(u => u.email === message.sender)!.id : 0,
-            message: `New comment on: ${message.title}`,
-            read: false,
-          })
+
+        if (message && currentUser) {
+          // 1. Notify Message Author
+          // Try to find author by name (since message.sender stores name)
+          const messageAuthor = get().users.find(u => u.name === message.sender) || get().users.find(u => u.email === message.sender)
+
+          if (messageAuthor && messageAuthor.id !== currentUser.id) {
+            await get().addNotification({
+              message_id: message.id,
+              user_id: messageAuthor.id,
+              message: `New comment on: ${message.title}`,
+              read: false,
+            })
+          }
+
+          // 2. Notify Parent Comment Author (if reply)
+          if (newComment.parent_comment_id) {
+            const parentComment = get().comments.find(c => c.id === newComment.parent_comment_id)
+            if (parentComment && parentComment.user_id && parentComment.user_id !== currentUser.id) {
+              // Don't notify twice if parent author is same as message author
+              if (!messageAuthor || messageAuthor.id !== parentComment.user_id) {
+                await get().addNotification({
+                  message_id: message.id,
+                  user_id: parentComment.user_id,
+                  message: `${currentUser.name} replied to your comment`,
+                  read: false,
+                })
+              }
+            }
+          }
+
+          // 3. Notify Message Recipients (if comment is from Message Author)
+          // This ensures that if Admin comments on their own message, students get notified
+          if (messageAuthor && currentUser.id === messageAuthor.id) {
+            let recipientsToNotify: User[] = []
+
+            if (message.recipients === 'all') {
+              recipientsToNotify = get().users.filter(u => u.id !== currentUser.id)
+            } else if (message.recipients === 'students') {
+              recipientsToNotify = get().users.filter(u => u.role === 'student')
+            } else if (message.recipients === 'staff') {
+              recipientsToNotify = get().users.filter(u => u.role === 'staff')
+            } else if (message.recipients === 'admins') {
+              recipientsToNotify = get().users.filter(u => u.role === 'admin')
+            } else if (message.recipients === 'group' && message.custom_groups) {
+              // Handle custom groups if needed, for now simplified
+              // We would need to look up group members
+              const groups = get().groups.filter(g => message.custom_groups?.includes(g.id))
+              const memberEmails = groups.flatMap(g => g.members)
+              recipientsToNotify = get().users.filter(u => memberEmails.includes(u.email) && u.id !== currentUser.id)
+            }
+
+            // Limit to avoid spam if 'all' is huge, but for now notify all found
+            for (const recipient of recipientsToNotify) {
+              await get().addNotification({
+                message_id: message.id,
+                user_id: recipient.id,
+                message: `New update on: ${message.title}`,
+                read: false,
+              })
+            }
+          }
         }
       } catch (notifyErr) {
         console.warn('Failed to create notification for comment:', notifyErr)
@@ -1317,7 +1375,7 @@ export const useStore = create<AppState>((set, get) => ({
   addCourse: async (courseData) => {
     try {
       console.log('[addCourse] Starting with data:', JSON.stringify(courseData, null, 2))
-      
+
       // Validate required fields
       if (!courseData.name) {
         throw new Error('Course name is required')
@@ -1328,20 +1386,20 @@ export const useStore = create<AppState>((set, get) => ({
       if (!courseData.created_by) {
         throw new Error('Created by is required')
       }
-      
+
       // Generate a default code if empty (from course name first letters)
-      const courseCode = courseData.code && courseData.code.trim() 
-        ? courseData.code.trim() 
+      const courseCode = courseData.code && courseData.code.trim()
+        ? courseData.code.trim()
         : courseData.name.split(' ').map(w => w[0]).join('').toUpperCase() || 'COURSE'
-      
+
       console.log('[addCourse] Validation passed, inserting to Supabase...')
-      
+
       const dataToInsert = {
         ...courseData,
         code: courseCode,
         description: courseData.description || null
       }
-      
+
       const { data, error } = await supabase
         .from('courses')
         .insert([dataToInsert])
@@ -1350,11 +1408,11 @@ export const useStore = create<AppState>((set, get) => ({
       console.log('[addCourse] Supabase response received')
       console.log('[addCourse] Data:', data)
       console.log('[addCourse] Error present:', !!error)
-      
+
       if (error) {
         console.error('[addCourse] Supabase returned error object')
         console.error('[addCourse] Error keys:', Object.keys(error || {}))
-        
+
         // Try to extract error information
         let errorMsg = 'Unknown Supabase error'
         if (typeof error === 'object' && error !== null) {
@@ -1373,23 +1431,23 @@ export const useStore = create<AppState>((set, get) => ({
         }))
         return data[0] as Course
       }
-      
+
       console.warn('[addCourse] No data returned from insert, but no error either')
       return null
     } catch (error) {
       console.error('[addCourse] Exception caught')
       console.error('[addCourse] Error type:', typeof error)
       console.error('[addCourse] Error constructor:', error?.constructor?.name)
-      
+
       const errorMessage = error instanceof Error ? error.message : String(error)
       console.error('[addCourse] Error message:', errorMessage)
-      
+
       if (error instanceof Error && error.stack) {
         console.error('[addCourse] Stack trace:', error.stack)
       }
-      
+
       console.error('[addCourse] CourseData:', JSON.stringify(courseData, null, 2))
-      
+
       // Fallback: add course optimistically to local state
       try {
         const newCourse: Course = {

@@ -191,6 +191,7 @@ ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE acknowledgements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 
 -- Create basic RLS policies (allow all operations for demo - customize for production)
 CREATE POLICY "Allow all operations on users" ON users FOR ALL USING (true);

@@ -99,6 +99,7 @@ export interface Comment {
   user_name?: string
   user_email?: string
   user_role?: string
+  user_department?: string
   content: string
   mentions?: string[]
   created_at?: string

@@ -13,9 +13,16 @@ interface MessageDetailProps {
   onBack: () => void
 }
 
-function CommentForm({ currentUser, messageId, addComment, parentId = null, onSuccess }: any) {
+function CommentForm({ currentUser, messageId, addComment, replyingTo, onCancelReply, onSuccess }: any) {
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (replyingTo && textareaRef.current) {
+      textareaRef.current.focus()
+    }
+  }, [replyingTo])
 
   const handleSubmit = async () => {
     if (!currentUser || !text.trim()) return
@@ -23,11 +30,12 @@ function CommentForm({ currentUser, messageId, addComment, parentId = null, onSu
     try {
       const created = await addComment({
         message_id: messageId,
-        parent_comment_id: parentId,
+        parent_comment_id: replyingTo?.id || null,
         user_id: currentUser.id,
         user_name: currentUser.name,
         user_email: currentUser.email,
         user_role: currentUser.role,
+        user_department: currentUser.department,
         content: text.trim(),
       })
       setText('')
@@ -40,17 +48,48 @@ function CommentForm({ currentUser, messageId, addComment, parentId = null, onSu
   }
 
   return (
-    <div className="mt-3">
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        className="w-full p-2 rounded border bg-white dark:bg-gray-700 text-sm"
-        rows={3}
-        placeholder={currentUser ? 'Write a comment...' : 'Log in to comment'}
-      />
-      <div className="flex justify-end mt-2">
-        <button onClick={handleSubmit} disabled={!currentUser || submitting} className="px-3 py-1 bg-indigo-600 text-white rounded text-sm">
-          Post Comment
+    <div className="mt-4 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+      {replyingTo && (
+        <div className="mb-2 flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/30 p-2 rounded border-l-4 border-indigo-500">
+          <div className="text-sm overflow-hidden">
+            <span className="font-semibold text-indigo-600 dark:text-indigo-400">Replying to {replyingTo.user_name}</span>
+            <p className="text-gray-500 dark:text-gray-400 truncate">{replyingTo.content}</p>
+          </div>
+          <button onClick={onCancelReply} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+            <span className="sr-only">Cancel reply</span>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+      )}
+      <div className="flex gap-2">
+        <textarea
+          ref={textareaRef}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          className="flex-1 p-2 rounded border bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none"
+          rows={replyingTo ? 2 : 1}
+          placeholder={currentUser ? 'Type a message...' : 'Log in to comment'}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              handleSubmit()
+            }
+          }}
+        />
+        <button
+          onClick={handleSubmit}
+          disabled={!currentUser || submitting || !text.trim()}
+          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white rounded-md text-sm font-medium transition-colors flex items-center justify-center min-w-[3rem]"
+        >
+          {submitting ? (
+            <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+            </svg>
+          )}
         </button>
       </div>
     </div>
@@ -77,59 +116,24 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
     fetchComments()
   }, [currentUser, message, messageId, markMessageAsRead, fetchComments, markNotificationsAsReadForMessage])
 
-  // Build nested comment tree
-  const commentsForMessage = comments.filter((c: any) => c.message_id === messageId)
+  // Flat comment list sorted by date
+  const commentsForMessage = comments
+    .filter((c: any) => c.message_id === messageId)
+    .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
 
-  const buildTree = (list: any[]) => {
-    const map = new Map<number, any>()
-    const roots: any[] = []
-    list.forEach((item) => map.set(item.id, { ...item, children: [] }))
-    list.forEach((item) => {
-      const node = map.get(item.id)
-      if (item.parent_comment_id) {
-        const parent = map.get(item.parent_comment_id)
-        if (parent) parent.children.push(node)
-        else roots.push(node)
-      } else {
-        roots.push(node)
-      }
-    })
-    return roots
+  const [replyingTo, setReplyingTo] = useState<any | null>(null)
+
+  const getParentComment = (parentId: number) => {
+    return comments.find((c: any) => c.id === parentId)
   }
 
-  const commentTree = buildTree(commentsForMessage)
+  const scrollToBottomRef = useRef<HTMLDivElement>(null)
 
-  const [replyTo, setReplyTo] = useState<number | null>(null)
-
-  const renderNode = (node: any, depth = 0) => {
-    return (
-      <div key={node.id} className="border-b last:border-b-0 pb-2 pl-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="text-sm font-medium">{node.user_name} <span className="text-xs text-gray-400">· {node.user_role}</span></div>
-            <div className="text-xs text-gray-400">{new Date(node.created_at).toLocaleString()}</div>
-          </div>
-          <div className="text-sm flex items-center gap-2">
-            <button className="text-indigo-500 text-xs" onClick={() => setReplyTo(node.id)}>Reply</button>
-            {currentUser?.id === node.user_id && (
-              <button className="text-red-500 text-xs" onClick={() => deleteComment(node.id)}>Delete</button>
-            )}
-          </div>
-        </div>
-        <div className="mt-2 text-sm whitespace-pre-wrap">{node.content}</div>
-        {replyTo === node.id && (
-          <div className="mt-2">
-            <CommentForm currentUser={currentUser} messageId={messageId} addComment={addComment} parentId={node.id} onSuccess={() => setReplyTo(null)} />
-          </div>
-        )}
-        {node.children && node.children.length > 0 && (
-          <div className="mt-2 space-y-2">
-            {node.children.map((child: any) => renderNode(child, depth + 1))}
-          </div>
-        )}
-      </div>
-    )
-  }
+  useEffect(() => {
+    if (scrollToBottomRef.current) {
+      scrollToBottomRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [commentsForMessage.length])
 
   if (!message) {
     return (
@@ -291,67 +295,86 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
           {/* Comments Section */}
           <div>
             <h3 className="font-semibold mb-2">Comments</h3>
-            <div className={`space-y-3 p-3 rounded-md ${isDarkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
-              {/* Build a comment tree so replies are nested */}
-              {(() => {
-                const tree: any[] = []
-                const map: Record<string, any> = {}
-                comments.filter(c => c.message_id === messageId).forEach((c: any) => {
-                  map[c.id] = { ...c, replies: [] }
-                })
-                Object.values(map).forEach((c: any) => {
-                  if (c.parent_comment_id) {
-                    const parent = map[c.parent_comment_id]
-                    if (parent) parent.replies.push(c)
-                    else tree.push(c) // orphaned reply
-                  } else {
-                    tree.push(c)
-                  }
-                })
+            <div className={`flex flex-col h-[500px] rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
 
-                if (tree.length === 0) return (<p className="text-sm text-gray-500">No comments yet</p>)
-
-                const renderNode = (node: any, depth = 0) => (
-                  <div key={node.id} className={`border-b last:border-b-0 pb-2 pl-${Math.min(depth * 4, 12)}`}>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="text-sm font-medium">{node.user_name} <span className="text-xs text-gray-400">· {node.user_role}</span></div>
-                        <div className="text-xs text-gray-400">{new Date(node.created_at).toLocaleString()}</div>
-                      </div>
-                      <div className="text-sm">
-                        {currentUser?.id === node.user_id && (
-                          <button className="text-red-500 text-xs" onClick={() => deleteComment(node.id)}>Delete</button>
-                        )}
-                      </div>
-                    </div>
-                    <div className="mt-2 text-sm whitespace-pre-wrap">{node.content}</div>
-                    <div className="mt-2 text-sm flex space-x-2">
-                      <button className="text-blue-500 text-xs" onClick={() => setReplyTo(node.id)}>Reply</button>
-                    </div>
-                    {replyTo === node.id && (
-                      <div className="mt-2">
-                        <CommentForm
-                          currentUser={currentUser}
-                          messageId={messageId}
-                          parentId={node.id}
-                          addComment={addComment}
-                          onSuccess={() => setReplyTo(null)}
-                        />
-                      </div>
-                    )}
-                    {node.replies && node.replies.map((r: any) => renderNode(r, depth + 1))}
+              {/* Chat Area */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {commentsForMessage.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                    <p>No comments yet</p>
+                    <p className="text-sm">Be the first to start the conversation</p>
                   </div>
-                )
+                ) : (
+                  commentsForMessage.map((comment: any) => {
+                    const isMe = currentUser?.id === comment.user_id
+                    const parent = comment.parent_comment_id ? getParentComment(comment.parent_comment_id) : null
 
-                return tree.map(n => renderNode(n, 0))
-              })()}
+                    return (
+                      <div key={comment.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[80%] rounded-2xl px-4 py-2 shadow-sm relative group ${isMe
+                          ? 'bg-indigo-600 text-white rounded-tr-none'
+                          : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-tl-none'
+                          }`}>
+                          {/* Reply Quote */}
+                          {parent && (
+                            <div className={`mb-2 text-xs p-2 rounded border-l-2 cursor-pointer ${isMe
+                              ? 'bg-indigo-700/50 border-indigo-300 text-indigo-100'
+                              : 'bg-gray-100 dark:bg-gray-700 border-indigo-500 text-gray-600 dark:text-gray-300'
+                              }`}>
+                              <div className="font-semibold">{parent.user_name}</div>
+                              <div className="truncate opacity-80">{parent.content}</div>
+                            </div>
+                          )}
 
-              {/* Root comment form */}
-              <div className="mt-3">
+                          {/* Header (Name & Role) - Only show for others */}
+                          {!isMe && (
+                            <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">
+                              {comment.user_name} <span className="font-normal opacity-75">· {comment.user_role} {comment.user_department ? `· ${comment.user_department}` : ''}</span>
+                            </div>
+                          )}
+
+                          {/* Content */}
+                          <div className="text-sm whitespace-pre-wrap break-words">{comment.content}</div>
+
+                          {/* Footer (Time & Actions) */}
+                          <div className={`flex items-center justify-end gap-2 mt-1 text-[10px] ${isMe ? 'text-indigo-200' : 'text-gray-400'}`}>
+                            <span>{new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+
+                            {/* Hover Actions */}
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 ml-2">
+                              <button
+                                onClick={() => setReplyingTo(comment)}
+                                className="hover:underline font-medium"
+                              >
+                                Reply
+                              </button>
+                              {isMe && (
+                                <button
+                                  onClick={() => deleteComment(comment.id)}
+                                  className="hover:underline text-red-300 hover:text-red-100"
+                                >
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+                <div ref={scrollToBottomRef} />
+              </div>
+
+              {/* Input Area */}
+              <div className={`p-3 border-t ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
                 <CommentForm
                   currentUser={currentUser}
                   messageId={messageId}
                   addComment={addComment}
+                  replyingTo={replyingTo}
+                  onCancelReply={() => setReplyingTo(null)}
+                  onSuccess={() => setReplyingTo(null)}
                 />
               </div>
             </div>
@@ -416,8 +439,8 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
           {(currentUser?.role === 'student' || currentUser?.role === 'staff' || (currentUser?.role === 'admin' && message.sender_role === 'staff')) && (
             <div className="flex justify-center pt-4">
               {!isAcknowledged() && (
-                <Button 
-                  onClick={handleAcknowledge} 
+                <Button
+                  onClick={handleAcknowledge}
                   size="lg"
                   className={acknowledgeAnimating ? 'animate-buttonDisappear' : ''}
                   disabled={acknowledgeAnimating}
