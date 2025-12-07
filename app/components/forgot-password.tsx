@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useStore } from '@/lib/store'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -104,20 +104,13 @@ export default function ForgotPassword({ open, onOpenChange }: ForgotPasswordPro
         setNewPassword('')
         setConfirmPassword('')
       }, 2000)
-    } catch (err) {
+    } catch {
       setError('Failed to reset password. Please try again.')
       setLoading(false)
     }
   }
 
-  const handleReset = () => {
-    setStep('email')
-    setEmail('')
-    setVerificationCode('')
-    setNewPassword('')
-    setConfirmPassword('')
-    setError('')
-  }
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

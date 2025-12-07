@@ -7,8 +7,8 @@ type Props = {
   children: React.ReactNode
 }
 
-class Boundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error?: any}> {
-  constructor(props: any) {
+class Boundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error?: Error }> {
+  constructor(props: { children: React.ReactNode }) {
     super(props)
     this.state = { hasError: false }
   }
@@ -17,13 +17,13 @@ class Boundary extends React.Component<{children: React.ReactNode}, {hasError: b
     return { hasError: true }
   }
 
-  componentDidCatch(error: any, info: any) {
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
     // eslint-disable-next-line no-console
     console.error('Uncaught error in ErrorBoundary:', error, info)
   }
 
   render() {
-    if ((this.state as any).hasError) {
+    if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center p-6">
           <div className="max-w-lg text-center">

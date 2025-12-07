@@ -1,7 +1,7 @@
 'use client'
 
 import { Card, CardContent } from '@/components/ui/card'
-import { MessageSquare, Search, Archive, Clock } from 'lucide-react'
+import { MessageSquare, Search, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface EmptyStateProps {
@@ -59,8 +59,8 @@ export default function EmptyState({ type, onReset }: EmptyStateProps) {
             {state.tips}
           </p>
           {state.showReset && onReset && (
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={onReset}
             >
               Clear Filters

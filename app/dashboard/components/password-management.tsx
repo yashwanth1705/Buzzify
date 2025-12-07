@@ -81,7 +81,7 @@ export default function PasswordManagement() {
           <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex space-x-2">
             <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-blue-800 dark:text-blue-200">
-              As an admin, you can change your own password here. To change other users' passwords, use the Admin Panel.
+              As an admin, you can change your own password here. To change other users&apos; passwords, use the Admin Panel.
             </p>
           </div>
         )}
@@ -90,7 +90,7 @@ export default function PasswordManagement() {
           <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex space-x-2">
             <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-amber-800 dark:text-amber-200">
-              If you forgot your password, use the "Forgot Password" option on the login page. Only admins can change other users' passwords.
+              If you forgot your password, use the &quot;Forgot Password&quot; option on the login page. Only admins can change other users&apos; passwords.
             </p>
           </div>
         )}

@@ -89,9 +89,9 @@ export default function LoginPage() {
   }
 
   const demoCredentials = [
-    { role: 'admin', email: 'admin@college.edu', password: 'admin123', icon: UserCheck },
+    { role: 'admin', email: 'tamilselvam.cm@gmail.com', password: 'admin123', icon: UserCheck },
     { role: 'staff', email: 'staff@college.edu', password: 'staff123', icon: Users },
-    { role: 'student', email: 'student@college.edu', password: 'student123', icon: GraduationCap },
+    { role: 'student', email: 'yashwanthrathnam@gmail.com', password: 'student123', icon: GraduationCap },
   ]
 
   const handleDemoLogin = async (role: string, demoEmail: string, demoPassword: string) => {
@@ -116,11 +116,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-300 ${
-      isDarkMode
-        ? 'bg-gradient-to-br from-gray-900 to-gray-800'
-        : 'bg-gradient-to-br from-blue-50 to-indigo-100'
-    }`}>
+    <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-300 ${isDarkMode
+      ? 'bg-gradient-to-br from-gray-900 to-gray-800'
+      : 'bg-gradient-to-br from-blue-50 to-indigo-100'
+      }`}>
       <div className="w-full max-w-md space-y-6">
         {/* Theme Toggle Button */}
         <div className="flex justify-end">
@@ -128,25 +127,22 @@ export default function LoginPage() {
             variant="ghost"
             size="sm"
             onClick={toggleTheme}
-            className={`rounded-full p-2 ${
-              isDarkMode
-                ? 'hover:bg-gray-700 text-gray-300'
-                : 'hover:bg-gray-100 text-gray-600'
-            }`}
+            className={`rounded-full p-2 ${isDarkMode
+              ? 'hover:bg-gray-700 text-gray-300'
+              : 'hover:bg-gray-100 text-gray-600'
+              }`}
           >
             {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </Button>
         </div>
 
         <div className="text-center">
-          <h1 className={`text-3xl font-bold ${
-            isDarkMode ? 'text-white' : 'text-gray-900'
-          }`}>
+          <h1 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
             Buzzify
           </h1>
-          <p className={`mt-2 ${
-            isDarkMode ? 'text-gray-300' : 'text-gray-600'
-          }`}>
+          <p className={`mt-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'
+            }`}>
             Sign in to your account
           </p>
         </div>
@@ -256,6 +252,6 @@ export default function LoginPage() {
       </div>
 
       <ForgotPassword open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen} />
-    </div>
+    </div >
   )
 }

@@ -2,14 +2,15 @@
 
 import { useState } from 'react'
 import { useStore } from '@/lib/store'
+import { sendNotificationEmail } from '@/app/actions/email'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { FileText, Upload, X, Users, Clock, Eye, AlertCircle, CheckCircle, Calendar, Zap } from 'lucide-react'
+import { User } from '@/lib/supabase'
+import { FileText, Upload, X, Users, Eye, AlertCircle, CheckCircle, Calendar, Zap } from 'lucide-react'
 
 interface CreateMessageProps {
   onSuccess: () => void
@@ -38,7 +39,7 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
 
     setIsSubmitting(true)
     try {
-      let recipientUsers: any[] = []
+      let recipientUsers: User[] = []
       let totalRecipients = 0
 
       if (formData.recipients === 'all') {
@@ -82,7 +83,26 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
         acknowledged_by: [],
       }
 
-      await addMessage(messageData)
+      console.log('[CreateMessage] Calling addMessage...')
+      const newMessage = await addMessage(messageData)
+      console.log('[CreateMessage] addMessage result:', newMessage)
+
+      // Send Email Notification
+      if (newMessage && newMessage.id) {
+        console.log('[CreateMessage] Triggering sendNotificationEmail for ID:', newMessage.id)
+        await sendNotificationEmail(
+          newMessage.id,
+          formData.title,
+          formData.content,
+          currentUser.name,
+          formData.priority,
+          formData.recipients,
+          formData.customGroups
+        )
+      } else {
+        console.warn('[CreateMessage] newMessage is missing or has no ID, skipping email')
+      }
+
       setIsSubmitting(false)
       onSuccess()
     } catch (error) {
@@ -215,7 +235,7 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
                       <button
                         key={priority.value}
                         type="button"
-                        onClick={() => setFormData({ ...formData, priority: priority.value as any })}
+                        onClick={() => setFormData({ ...formData, priority: priority.value as 'low' | 'medium' | 'high' })}
                         className={`p-3 rounded-lg border-2 text-sm font-medium transition-all ${formData.priority === priority.value
                           ? priority.color + ' border-2'
                           : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600'
@@ -242,34 +262,34 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
                     ]
                       .filter(option => !option.hideFor?.includes(currentUser?.role || ''))
                       .map((option) => (
-                      <label
-                        key={option.value}
-                        className={`flex items-start space-x-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${formData.recipients === option.value
-                          ? 'bg-indigo-50 border-indigo-500 dark:bg-indigo-900/20 dark:border-indigo-400'
-                          : 'bg-white border-gray-200 hover:border-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:border-gray-600'
-                          }`}
-                      >
-                        <input
-                          type="radio"
-                          name="recipients"
-                          value={option.value}
-                          checked={formData.recipients === option.value}
-                          onChange={(e) => {
-                            const val = e.target.value as 'all' | 'students' | 'staff' | 'admins' | 'group'
-                            setFormData((prev) => ({
-                              ...prev,
-                              recipients: val,
-                              customGroups: [], // Reset custom groups when changing recipient type
-                            }))
-                          }}
-                          className="mt-1"
-                        />
-                        <div>
-                          <p className="text-sm font-medium">{option.label}</p>
-                          <p className="text-xs text-gray-500">{option.desc}</p>
-                        </div>
-                      </label>
-                    ))}
+                        <label
+                          key={option.value}
+                          className={`flex items-start space-x-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${formData.recipients === option.value
+                            ? 'bg-indigo-50 border-indigo-500 dark:bg-indigo-900/20 dark:border-indigo-400'
+                            : 'bg-white border-gray-200 hover:border-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:border-gray-600'
+                            }`}
+                        >
+                          <input
+                            type="radio"
+                            name="recipients"
+                            value={option.value}
+                            checked={formData.recipients === option.value}
+                            onChange={(e) => {
+                              const val = e.target.value as 'all' | 'students' | 'staff' | 'admins' | 'group'
+                              setFormData((prev) => ({
+                                ...prev,
+                                recipients: val,
+                                customGroups: [], // Reset custom groups when changing recipient type
+                              }))
+                            }}
+                            className="mt-1"
+                          />
+                          <div>
+                            <p className="text-sm font-medium">{option.label}</p>
+                            <p className="text-xs text-gray-500">{option.desc}</p>
+                          </div>
+                        </label>
+                      ))}
                   </div>
                 </div>
 
@@ -370,7 +390,7 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
                             name="schedule"
                             value={option.value}
                             checked={formData.scheduleType === option.value}
-                            onChange={(e) => setFormData({ ...formData, scheduleType: e.target.value as any })}
+                            onChange={(e) => setFormData({ ...formData, scheduleType: e.target.value as 'now' | 'later' })}
                           />
                           <Icon className="h-5 w-5 text-gray-600" />
                           <span className="text-sm font-medium">{option.label}</span>

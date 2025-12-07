@@ -19,10 +19,10 @@ interface SystemSettings {
 
 export default function CombinedSettings() {
   const { currentUser, updateUser, isDarkMode } = useStore()
-  
+
   // Settings tabs state
   const [activeSettingsTab, setActiveSettingsTab] = useState('account')
-  
+
   // Password management state
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -83,7 +83,7 @@ export default function CombinedSettings() {
         setConfirmPassword('')
         setTimeout(() => setPasswordSuccess(''), 3000)
       }
-    } catch (err) {
+    } catch {
       setPasswordError('Failed to change password. Please try again.')
     } finally {
       setPasswordLoading(false)
@@ -99,7 +99,7 @@ export default function CombinedSettings() {
       await new Promise(resolve => setTimeout(resolve, 500))
       setSystemSuccess('System settings saved successfully!')
       setTimeout(() => setSystemSuccess(''), 3000)
-    } catch (err) {
+    } catch {
       setSystemSuccess('Failed to save settings')
     } finally {
       setSystemLoading(false)
@@ -131,16 +131,14 @@ export default function CombinedSettings() {
             </CardHeader>
             <CardContent className="space-y-4">
               {currentUser?.role === 'admin' && (
-                <div className={`mb-4 p-3 rounded-lg flex space-x-2 transition-colors ${
-                  isDarkMode 
-                    ? 'bg-blue-900/20 border border-blue-800' 
-                    : 'bg-blue-50 border border-blue-200'
-                }`}>
-                  <AlertCircle className={`h-5 w-5 flex-shrink-0 mt-0.5 ${
-                    isDarkMode ? 'text-blue-400' : 'text-blue-600'
-                  }`} />
+                <div className={`mb-4 p-3 rounded-lg flex space-x-2 transition-colors ${isDarkMode
+                  ? 'bg-blue-900/20 border border-blue-800'
+                  : 'bg-blue-50 border border-blue-200'
+                  }`}>
+                  <AlertCircle className={`h-5 w-5 flex-shrink-0 mt-0.5 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                    }`} />
                   <p className={`text-sm ${isDarkMode ? 'text-blue-200' : 'text-blue-800'}`}>
-                    As an admin, you can change your own password here. To change other users' passwords, use the User Management section.
+                    As an admin, you can change your own password here. To change other users&apos; passwords, use the User Management section.
                   </p>
                 </div>
               )}
@@ -160,9 +158,8 @@ export default function CombinedSettings() {
                     <button
                       type="button"
                       onClick={() => setShowPasswords(!showPasswords)}
-                      className={`absolute right-3 top-1/2 -translate-y-1/2 ${
-                        isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'
-                      }`}
+                      className={`absolute right-3 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'
+                        }`}
                     >
                       {showPasswords ? (
                         <EyeOff className="h-4 w-4" />
@@ -205,14 +202,12 @@ export default function CombinedSettings() {
                 </div>
 
                 {passwordError && (
-                  <div className={`p-3 rounded-lg flex space-x-2 ${
-                    isDarkMode 
-                      ? 'bg-red-900/20 border border-red-800' 
-                      : 'bg-red-50 border border-red-200'
-                  }`}>
-                    <AlertCircle className={`h-5 w-5 flex-shrink-0 mt-0.5 ${
-                      isDarkMode ? 'text-red-400' : 'text-red-600'
-                    }`} />
+                  <div className={`p-3 rounded-lg flex space-x-2 ${isDarkMode
+                    ? 'bg-red-900/20 border border-red-800'
+                    : 'bg-red-50 border border-red-200'
+                    }`}>
+                    <AlertCircle className={`h-5 w-5 flex-shrink-0 mt-0.5 ${isDarkMode ? 'text-red-400' : 'text-red-600'
+                      }`} />
                     <p className={`text-sm ${isDarkMode ? 'text-red-200' : 'text-red-800'}`}>
                       {passwordError}
                     </p>
@@ -220,14 +215,12 @@ export default function CombinedSettings() {
                 )}
 
                 {passwordSuccess && (
-                  <div className={`p-3 rounded-lg flex space-x-2 ${
-                    isDarkMode 
-                      ? 'bg-green-900/20 border border-green-800' 
-                      : 'bg-green-50 border border-green-200'
-                  }`}>
-                    <CheckCircle className={`h-5 w-5 flex-shrink-0 mt-0.5 ${
-                      isDarkMode ? 'text-green-400' : 'text-green-600'
-                    }`} />
+                  <div className={`p-3 rounded-lg flex space-x-2 ${isDarkMode
+                    ? 'bg-green-900/20 border border-green-800'
+                    : 'bg-green-50 border border-green-200'
+                    }`}>
+                    <CheckCircle className={`h-5 w-5 flex-shrink-0 mt-0.5 ${isDarkMode ? 'text-green-400' : 'text-green-600'
+                      }`} />
                     <p className={`text-sm ${isDarkMode ? 'text-green-200' : 'text-green-800'}`}>
                       {passwordSuccess}
                     </p>
@@ -345,14 +338,12 @@ export default function CombinedSettings() {
               </div>
 
               {systemSuccess && (
-                <div className={`p-3 rounded-lg flex space-x-2 ${
-                  isDarkMode 
-                    ? 'bg-green-900/20 border border-green-800' 
-                    : 'bg-green-50 border border-green-200'
-                }`}>
-                  <CheckCircle className={`h-5 w-5 flex-shrink-0 mt-0.5 ${
-                    isDarkMode ? 'text-green-400' : 'text-green-600'
-                  }`} />
+                <div className={`p-3 rounded-lg flex space-x-2 ${isDarkMode
+                  ? 'bg-green-900/20 border border-green-800'
+                  : 'bg-green-50 border border-green-200'
+                  }`}>
+                  <CheckCircle className={`h-5 w-5 flex-shrink-0 mt-0.5 ${isDarkMode ? 'text-green-400' : 'text-green-600'
+                    }`} />
                   <p className={`text-sm ${isDarkMode ? 'text-green-200' : 'text-green-800'}`}>
                     {systemSuccess}
                   </p>

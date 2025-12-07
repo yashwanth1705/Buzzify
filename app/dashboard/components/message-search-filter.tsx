@@ -153,7 +153,7 @@ export default function MessageSearchFilter({ messages, onFiltered }: MessageSea
               key={option.value}
               onClick={() => setFilters({ ...filters, status: option.value })}
               className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-medium transition-all ${filters.status === option.value
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none'
+                ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md hover:brightness-95'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
                 }`}
             >

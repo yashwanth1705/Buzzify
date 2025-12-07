@@ -57,7 +57,7 @@ interface AppState {
   fetchUsers: () => Promise<void>
 
   // Message Actions
-  addMessage: (message: Omit<Message, 'id' | 'created_at' | 'updated_at'>) => Promise<void>
+  addMessage: (message: Omit<Message, 'id' | 'created_at' | 'updated_at' | 'read_count' | 'read_by' | 'acknowledged' | 'acknowledged_by'>) => Promise<Message>
   // Comment Actions
   fetchComments: () => Promise<void>
   addComment: (commentData: Omit<Comment, 'id' | 'created_at' | 'updated_at'>) => Promise<Comment | null>
@@ -92,7 +92,7 @@ const demoUsers: User[] = [
   {
     id: 1,
     name: 'Admin User',
-    email: 'admin@college.edu',
+    email: 'tamilselvam.cm@gmail.com',
     password: 'admin123',
     role: 'admin',
     status: 'active',
@@ -118,7 +118,7 @@ const demoUsers: User[] = [
   {
     id: 3,
     name: 'John Student',
-    email: 'student@college.edu',
+    email: 'yashwanthrathnam@gmail.com',
     password: 'student123',
     role: 'student',
     status: 'active',
@@ -599,6 +599,7 @@ export const useStore = create<AppState>((set, get) => ({
         })
       }
 
+      return newMessage
     } catch (error) {
       console.error('Failed to save message:', error)
       throw error
@@ -1636,3 +1637,11 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 }))
+
+// Initialize store with data from Supabase if available
+if (typeof window !== 'undefined') {
+  useStore.getState().fetchUsers()
+  useStore.getState().fetchDepartments()
+  useStore.getState().fetchCourses()
+  useStore.getState().fetchSubCourses()
+}

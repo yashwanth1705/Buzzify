@@ -113,13 +113,13 @@ export default function MessageFeed({ onSelectMessage }: MessageFeedProps) {
 
   const shouldShowUnacknowledgedHighlight = (message: any) => {
     if (isAcknowledged(message)) return false
-    
+
     // Students and staff should see highlight
     if (currentUser?.role === 'student' || currentUser?.role === 'staff') return true
-    
+
     // Admins should see highlight only for messages from staff
     if (currentUser?.role === 'admin' && message.sender_role === 'staff') return true
-    
+
     return false
   }
 
@@ -139,8 +139,8 @@ export default function MessageFeed({ onSelectMessage }: MessageFeedProps) {
         visibleMessages.length === 0 ? (
           <EmptyState type="no_messages" />
         ) : (
-          <EmptyState 
-            type="no_results" 
+          <EmptyState
+            type="no_results"
             onReset={() => {
               setFilteredMessages(visibleMessages)
             }}
@@ -151,7 +151,7 @@ export default function MessageFeed({ onSelectMessage }: MessageFeedProps) {
           {filteredMessages.map((message, idx) => (
             <Card
               key={message.id}
-              className={`hover:shadow-md transition-all cursor-pointer animate-slideUp delay-${Math.min(idx, 12)} border-l-4 ${getPriorityBorderColor(message.priority)} ${getPriorityBgColor(message.priority)} ${isMessageRead(message) ? 'opacity-75' : ''} ${shouldShowUnacknowledgedHighlight(message) ? 'ring-2 ring-yellow-200 dark:ring-yellow-700 bg-yellow-50 dark:bg-yellow-900/30' : ''}`}
+              className={`hover:shadow-md transition-all cursor-pointer animate-slideUp delay-${Math.min(idx, 12)} border-l-4 ${getPriorityBorderColor(message.priority)} ${getPriorityBgColor(message.priority)} ${isMessageRead(message) ? 'opacity-75' : ''} ${shouldShowUnacknowledgedHighlight(message) ? 'ring-2 ring-yellow-400 dark:ring-yellow-600 bg-yellow-100 dark:bg-yellow-900/40' : ''}`}
               onClick={() => {
                 onSelectMessage(message.id)
                 if (!isMessageRead(message)) {

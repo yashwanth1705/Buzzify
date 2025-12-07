@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { User, Group, Department, Course, SubCourse } from '@/lib/supabase'
 import { Spinner } from '@/components/ui/spinner'
 import {
   Users,
@@ -28,7 +28,6 @@ import {
   UserCheck,
   Eye,
   EyeOff,
-  Search,
   Plus,
   Trash2 as TrashIcon
 } from 'lucide-react'
@@ -87,16 +86,16 @@ export default function AdminPanel() {
   const [showAddUserDialog, setShowAddUserDialog] = useState(false)
   const [showAddGroupDialog, setShowAddGroupDialog] = useState(false)
   const [showAddDepartmentDialog, setShowAddDepartmentDialog] = useState(false)
-  const [editingUser, setEditingUser] = useState<any>(null)
-  const [editingGroup, setEditingGroup] = useState<any>(null)
-  const [editingDepartment, setEditingDepartment] = useState<any>(null)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [editingGroup, setEditingGroup] = useState<Group | null>(null)
+  const [editingDepartment, setEditingDepartment] = useState<Department | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [userForm, setUserForm] = useState({
     name: '',
     email: '',
     password: '',
-    role: 'student' as 'student' | 'staff',
+    role: 'student' as 'student' | 'staff' | 'admin',
     department: '',
     course: '',
     sub_course: '',
@@ -116,17 +115,17 @@ export default function AdminPanel() {
     name: '',
     description: '',
   })
-  const [memberSearch, setMemberSearch] = useState('')
-  const [memberTab, setMemberTab] = useState('all')
 
   // Course Management State
-  const [tempCourses, setTempCourses] = useState<{
-    id: string; // temporary ID
-    name: string;
-    code: string;
-    description: string;
-    subCourses: { name: string; code: string; description: string }[];
-  }[]>([])
+  interface TempCourse {
+    id: string
+    name: string
+    code: string
+    description: string
+    subCourses: { name: string; code: string; description: string }[]
+  }
+
+  const [tempCourses, setTempCourses] = useState<TempCourse[]>([])
   const [newCourseName, setNewCourseName] = useState('')
   const [newCourseCode, setNewCourseCode] = useState('')
   const [newCourseDescription, setNewCourseDescription] = useState('')
@@ -138,8 +137,6 @@ export default function AdminPanel() {
   // Statistics
   const totalUsers = users.length
   const totalMessages = messages.length
-  const totalStudents = users.filter(u => u.role === 'student').length
-  const totalStaff = users.filter(u => u.role === 'staff').length
   const averageReadRate = messages.length > 0
     ? Math.round(messages.reduce((acc, msg) => acc + (msg.read_count / msg.total_recipients * 100), 0) / messages.length)
     : 0
@@ -225,7 +222,7 @@ export default function AdminPanel() {
     ])
   }
 
-  const handleEditDepartment = (department: any) => {
+  const handleEditDepartment = (department: Department) => {
     setEditingDepartment(department)
     setDepartmentForm({
       name: department.name,
@@ -257,12 +254,13 @@ export default function AdminPanel() {
     await fetchGroups()
   }
 
-  const handleEditGroup = (group: any) => {
+  const handleEditGroup = (group: Group) => {
     setEditingGroup(group)
     setGroupForm({
       name: group.name,
       description: group.description,
-      departments: group.departments || [],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      departments: (group as any).departments || [],
       members: group.members,
     })
     setShowAddGroupDialog(true)
@@ -326,7 +324,7 @@ export default function AdminPanel() {
     await fetchUsers()
   }
 
-  const handleEditUser = (user: any) => {
+  const handleEditUser = (user: User) => {
     setEditingUser(user)
     setUserForm({
       name: user.name,
@@ -1122,7 +1120,7 @@ export default function AdminPanel() {
 
                 <div className="space-y-4 mb-4">
                   {/* List of Courses */}
-                  {(editingDepartment ? courses.filter(c => c.department_id === editingDepartment.id) : tempCourses).map((course: any) => (
+                  {(editingDepartment ? courses.filter(c => c.department_id === editingDepartment.id) : tempCourses).map((course: Course | TempCourse) => (
                     <div key={course.id} className="border rounded-md p-3 bg-gray-50 dark:bg-gray-800/50">
                       <div className="flex justify-between items-start mb-2">
                         <div>
@@ -1136,7 +1134,7 @@ export default function AdminPanel() {
                           onClick={async () => {
                             if (editingDepartment) {
                               if (confirm('Delete this course?')) {
-                                await useStore.getState().deleteCourse(course.id)
+                                await useStore.getState().deleteCourse((course as Course).id)
                                 await fetchCourses()
                               }
                             } else {
@@ -1151,10 +1149,11 @@ export default function AdminPanel() {
                       {/* Sub-courses List */}
                       <div className="pl-4 border-l-2 border-gray-200 dark:border-gray-700 ml-1 space-y-2">
                         {(editingDepartment
-                          ? subCourses.filter(sc => sc.course_id === course.id)
-                          : course.subCourses
-                        ).map((subCourse: any) => (
-                          <div key={subCourse.id || subCourse.name} className="flex justify-between items-center text-xs bg-white dark:bg-gray-800 p-2 rounded border">
+                          ? subCourses.filter(sc => sc.course_id === (course as Course).id)
+                          : (course as TempCourse).subCourses
+                        ).map((subCourse: SubCourse | { name: string; code: string; description: string }) => (
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          <div key={(subCourse as any).id || subCourse.name} className="flex justify-between items-center text-xs bg-white dark:bg-gray-800 p-2 rounded border">
                             <span>{subCourse.name} ({subCourse.code})</span>
                             <Button
                               variant="ghost"
@@ -1163,7 +1162,7 @@ export default function AdminPanel() {
                               onClick={async () => {
                                 if (editingDepartment) {
                                   if (confirm('Delete this sub-course?')) {
-                                    await useStore.getState().deleteSubCourse(subCourse.id)
+                                    await useStore.getState().deleteSubCourse((subCourse as SubCourse).id)
                                     await fetchSubCourses()
                                   }
                                 } else {
@@ -1171,6 +1170,7 @@ export default function AdminPanel() {
                                     if (c.id === course.id) {
                                       return {
                                         ...c,
+                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                         subCourses: c.subCourses.filter((sc: any) => sc.name !== subCourse.name)
                                       }
                                     }
@@ -1212,7 +1212,7 @@ export default function AdminPanel() {
                                   name: newSubCourseName,
                                   code: newSubCourseCode,
                                   description: newSubCourseDescription,
-                                  course_id: course.id,
+                                  course_id: (course as Course).id,
                                   created_by: 'admin@college.edu'
                                 })
                                 await fetchSubCourses()
@@ -1277,7 +1277,7 @@ export default function AdminPanel() {
                         if (editingDepartment) {
                           // Generate code from course name if not provided
                           const generatedCode = newCourseCode.trim() || newCourseName.substring(0, 3).toUpperCase()
-                          
+
                           const coursePayload = {
                             name: newCourseName,
                             code: generatedCode,
@@ -1287,10 +1287,10 @@ export default function AdminPanel() {
                           }
                           console.log('[Add Course] Payload:', JSON.stringify(coursePayload, null, 2))
                           console.log('[Add Course] Department:', editingDepartment)
-                          
+
                           const result = await addCourse(coursePayload)
                           console.log('[Add Course] Result:', result)
-                          
+
                           if (result) {
                             console.log('[Add Course] Course added successfully, fetching courses...')
                             await fetchCourses()

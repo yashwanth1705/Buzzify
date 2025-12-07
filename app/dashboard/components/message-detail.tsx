@@ -6,14 +6,24 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatDate } from '@/lib/utils'
-import { ArrowLeft, User, Clock, Download, CheckCircle, Users } from 'lucide-react'
+import { User as UserIcon, Clock, Download, CheckCircle, Users, ArrowLeft } from 'lucide-react'
+import { User, Comment } from '@/lib/supabase'
 
 interface MessageDetailProps {
   messageId: number
   onBack: () => void
 }
 
-function CommentForm({ currentUser, messageId, addComment, replyingTo, onCancelReply, onSuccess }: any) {
+interface CommentFormProps {
+  currentUser: User | null
+  messageId: number
+  addComment: (comment: Omit<Comment, 'id' | 'created_at' | 'updated_at'>) => Promise<Comment | null>
+  replyingTo: Comment | null
+  onCancelReply: () => void
+  onSuccess?: (comment: Comment | null) => void
+}
+
+function CommentForm({ currentUser, messageId, addComment, replyingTo, onCancelReply, onSuccess }: CommentFormProps) {
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -110,7 +120,7 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
       hasMarkedAsRead.current = true
       markMessageAsRead(messageId)
       // mark notifications for this message as read
-      try { markNotificationsAsReadForMessage(messageId) } catch (e) { /* noop */ }
+      try { markNotificationsAsReadForMessage(messageId) } catch { /* noop */ }
     }
     // load comments for messages
     fetchComments()
@@ -118,13 +128,13 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
 
   // Flat comment list sorted by date
   const commentsForMessage = comments
-    .filter((c: any) => c.message_id === messageId)
-    .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .filter((c: Comment) => c.message_id === messageId)
+    .sort((a: Comment, b: Comment) => new Date(a.created_at!).getTime() - new Date(b.created_at!).getTime())
 
-  const [replyingTo, setReplyingTo] = useState<any | null>(null)
+  const [replyingTo, setReplyingTo] = useState<Comment | null>(null)
 
   const getParentComment = (parentId: number) => {
-    return comments.find((c: any) => c.id === parentId)
+    return comments.find((c: Comment) => c.id === parentId)
   }
 
   const scrollToBottomRef = useRef<HTMLDivElement>(null)
@@ -168,9 +178,7 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
     return currentUser && message.acknowledged_by?.includes(currentUser.id)
   }
 
-  const isMessageRead = () => {
-    return currentUser && message.read_by?.includes(currentUser.id)
-  }
+
 
 
 
@@ -234,7 +242,7 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
               <CardTitle className="text-2xl mb-2">{message.title}</CardTitle>
               <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400 mb-4">
                 <div className="flex items-center space-x-1">
-                  <User className="h-4 w-4" />
+                  <UserIcon className="h-4 w-4" />
                   <span>{message.sender} ({message.sender_role})</span>
                 </div>
                 <div className="flex items-center space-x-1">
@@ -305,7 +313,7 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
                     <p className="text-sm">Be the first to start the conversation</p>
                   </div>
                 ) : (
-                  commentsForMessage.map((comment: any) => {
+                  commentsForMessage.map((comment: Comment) => {
                     const isMe = currentUser?.id === comment.user_id
                     const parent = comment.parent_comment_id ? getParentComment(comment.parent_comment_id) : null
 
@@ -338,7 +346,7 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
 
                           {/* Footer (Time & Actions) */}
                           <div className={`flex items-center justify-end gap-2 mt-1 text-[10px] ${isMe ? 'text-indigo-200' : 'text-gray-400'}`}>
-                            <span>{new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            <span>{new Date(comment.created_at!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
 
                             {/* Hover Actions */}
                             <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 ml-2">
@@ -418,7 +426,7 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
                     {recipientUsers.length === 0 ? (
                       <p className="text-sm text-gray-500">No recipients found</p>
                     ) : (
-                      recipientUsers.map((u: any) => (
+                      recipientUsers.map((u: User) => (
                         <div key={u.id} className={`p-2 rounded-md ${isDarkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
                           <div className="flex items-center justify-between">
                             <div>
