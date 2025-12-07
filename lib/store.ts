@@ -483,6 +483,7 @@ export const useStore = create<AppState>((set, get) => ({
             sender_role: messageData.sender_role,
             recipients: messageData.recipients,
             custom_groups: messageData.custom_groups,
+            manual_recipients: messageData.manual_recipients,
             priority: messageData.priority,
             attachments: messageData.attachments,
             schedule_type: messageData.schedule_type,
@@ -510,6 +511,7 @@ export const useStore = create<AppState>((set, get) => ({
               sender_role: messageData.sender_role,
               recipients: messageData.recipients,
               custom_groups: messageData.custom_groups,
+              manual_recipients: messageData.manual_recipients,
               priority: messageData.priority,
               attachments: messageData.attachments,
               schedule_type: messageData.schedule_type,
@@ -546,6 +548,7 @@ export const useStore = create<AppState>((set, get) => ({
         sender_role: messageData.sender_role,
         recipients: messageData.recipients,
         custom_groups: messageData.custom_groups,
+        manual_recipients: messageData.manual_recipients,
         priority: messageData.priority,
         attachments: messageData.attachments,
         schedule_type: messageData.schedule_type,
@@ -587,6 +590,8 @@ export const useStore = create<AppState>((set, get) => ({
         })
 
         recipientUsers = users.filter(u => targetEmails.has(u.email))
+      } else if (messageData.recipients === 'manual' && messageData.manual_recipients) {
+        recipientUsers = users.filter(u => messageData.manual_recipients?.includes(u.email))
       }
 
       // Create one notification per recipient (await to avoid races)
@@ -786,7 +791,7 @@ export const useStore = create<AppState>((set, get) => ({
         try {
           const safeColumns = [
             'id', 'title', 'content', 'sender', 'sender_role', 'recipients',
-            'custom_groups', 'priority', 'attachments', 'schedule_type',
+            'custom_groups', 'manual_recipients', 'priority', 'attachments', 'schedule_type',
             'schedule_date', 'schedule_time', 'total_recipients', 'read_count',
             'acknowledged', 'created_at', 'updated_at'
           ].join(',')
@@ -1273,12 +1278,6 @@ export const useStore = create<AppState>((set, get) => ({
               recipientsToNotify = get().users.filter(u => u.role === 'staff')
             } else if (message.recipients === 'admins') {
               recipientsToNotify = get().users.filter(u => u.role === 'admin')
-            } else if (message.recipients === 'group' && message.custom_groups) {
-              // Handle custom groups if needed, for now simplified
-              // We would need to look up group members
-              const groups = get().groups.filter(g => message.custom_groups?.includes(g.id))
-              const memberEmails = groups.flatMap(g => g.members)
-              recipientsToNotify = get().users.filter(u => memberEmails.includes(u.email) && u.id !== currentUser.id)
             }
 
             // Limit to avoid spam if 'all' is huge, but for now notify all found
@@ -1292,6 +1291,7 @@ export const useStore = create<AppState>((set, get) => ({
             }
           }
         }
+
       } catch (notifyErr) {
         console.warn('Failed to create notification for comment:', notifyErr)
       }

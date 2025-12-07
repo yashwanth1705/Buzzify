@@ -137,11 +137,12 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
     return comments.find((c: Comment) => c.id === parentId)
   }
 
-  const scrollToBottomRef = useRef<HTMLDivElement>(null)
+  const chatContainerRef = useRef<HTMLDivElement>(null)
 
+  // Scroll chat to bottom when comments change
   useEffect(() => {
-    if (scrollToBottomRef.current) {
-      scrollToBottomRef.current.scrollIntoView({ behavior: 'smooth' })
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
     }
   }, [commentsForMessage.length])
 
@@ -306,7 +307,7 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
             <div className={`flex flex-col h-[500px] rounded-lg border ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
 
               {/* Chat Area */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="flex-1 overflow-y-auto p-4 space-y-4" ref={chatContainerRef}>
                 {commentsForMessage.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-gray-400">
                     <p>No comments yet</p>
@@ -371,7 +372,7 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
                     )
                   })
                 )}
-                <div ref={scrollToBottomRef} />
+
               </div>
 
               {/* Input Area */}

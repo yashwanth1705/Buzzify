@@ -89,8 +89,8 @@ export default function LoginPage() {
   }
 
   const demoCredentials = [
-    { role: 'admin', email: 'tamilselvam.cm@gmail.com', password: 'admin123', icon: UserCheck },
-    { role: 'staff', email: 'staff@college.edu', password: 'staff123', icon: Users },
+    { role: 'admin', email: '202317b2398@wilp.bits-pilani.ac.in', password: 'admin123', icon: UserCheck },
+    { role: 'staff', email: 'tamilselvam.cm@gmail.com', password: 'staff123', icon: Users },
     { role: 'student', email: 'yashwanthrathnam@gmail.com', password: 'student123', icon: GraduationCap },
   ]
 

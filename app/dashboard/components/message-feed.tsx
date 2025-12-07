@@ -40,6 +40,10 @@ export default function MessageFeed({ onSelectMessage }: MessageFeedProps) {
           if (userGroups.length > 0) return true
         }
 
+        if (message.recipients === 'manual' && message.manual_recipients && currentUser?.email) {
+          if (message.manual_recipients.includes(currentUser.email)) return true
+        }
+
         return false
       })
 

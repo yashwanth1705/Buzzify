@@ -45,6 +45,7 @@ export interface Message {
   sender_role: string
   recipients: string
   custom_groups?: number[]
+  manual_recipients?: string[]
   priority: 'low' | 'medium' | 'high'
   category?: string
   attachments?: string[]

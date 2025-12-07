@@ -1,5 +1,19 @@
 {
-  "node": {},
+  "node": {
+    "7faa451cf5ffd1feb1d1db56e5652ab6b10df8dc1c": {
+      "workers": {
+        "app/dashboard/page": {
+          "moduleId": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22D%3A%5C%5CGoogle%5C%5Ccampus-messaging-portal%5C%5Capp%5C%5Cactions%5C%5Cemail.ts%22%2C%5B%7B%22id%22%3A%227faa451cf5ffd1feb1d1db56e5652ab6b10df8dc1c%22%2C%22exportedName%22%3A%22sendNotificationEmail%22%2C%22filename%22%3A%22..%2FD%3A%5C%5CGoogle%5C%5Ccampus-messaging-portal%5C%5Capp%5C%5Cactions%5C%5Cemail.ts%22%7D%5D%5D%5D&__client_imported__=true!",
+          "async": false
+        }
+      },
+      "layer": {
+        "app/dashboard/page": "action-browser"
+      },
+      "filename": "../D:\\Google\\campus-messaging-portal\\app\\actions\\email.ts",
+      "exportedName": "sendNotificationEmail"
+    }
+  },
   "edge": {},
   "encryptionKey": "J2Qd2E14WsXzskD61Z4iIipEJOtiM/DPm/egc+la6po="
 }

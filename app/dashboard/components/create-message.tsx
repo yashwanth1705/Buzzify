@@ -23,8 +23,9 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
     title: '',
     content: '',
     priority: 'medium' as 'low' | 'medium' | 'high',
-    recipients: 'all' as 'all' | 'students' | 'staff' | 'admins' | 'group',
+    recipients: 'all' as 'all' | 'students' | 'staff' | 'admins' | 'group' | 'manual',
     customGroups: [] as number[],
+    manualEmails: '',
     scheduleType: 'now' as 'now' | 'later',
     scheduleDate: '',
     scheduleTime: '',
@@ -65,6 +66,14 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
         })
       }
 
+      const manualEmailsList = formData.recipients === 'manual'
+        ? formData.manualEmails.split(',').map(e => e.trim()).filter(e => e)
+        : []
+
+      if (formData.recipients === 'manual') {
+        totalRecipients = manualEmailsList.length
+      }
+
       const messageData = {
         title: formData.title,
         content: formData.content,
@@ -72,6 +81,7 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
         sender_role: currentUser.role,
         recipients: formData.recipients,
         custom_groups: formData.customGroups,
+        manual_recipients: manualEmailsList,
         priority: formData.priority,
         attachments: attachments,
         schedule_type: formData.scheduleType,
@@ -87,18 +97,19 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
       const newMessage = await addMessage(messageData)
       console.log('[CreateMessage] addMessage result:', newMessage)
 
-      // Send Email Notification
       if (newMessage && newMessage.id) {
         console.log('[CreateMessage] Triggering sendNotificationEmail for ID:', newMessage.id)
-        await sendNotificationEmail(
+        const emailResult = await sendNotificationEmail(
           newMessage.id,
           formData.title,
           formData.content,
           currentUser.name,
           formData.priority,
           formData.recipients,
-          formData.customGroups
+          formData.customGroups,
+          manualEmailsList
         )
+        console.log('[CreateMessage] Email Action Result:', emailResult)
       } else {
         console.warn('[CreateMessage] newMessage is missing or has no ID, skipping email')
       }
@@ -144,6 +155,13 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
       }
     })
 
+
+
+    if (formData.recipients === 'manual') {
+      const emails = formData.manualEmails.split(',').map(e => e.trim()).filter(e => e)
+      count = emails.length
+    }
+
     return count
   }
 
@@ -171,6 +189,16 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
         })
       }
     })
+
+
+
+    if (formData.recipients === 'manual') {
+      const emails = formData.manualEmails.split(',').map(e => e.trim()).filter(e => e)
+      emails.forEach(e => {
+        if (!emails.includes(e)) emails.push(e)
+      })
+      return emails // Just return the manual list
+    }
 
     return emails
   }
@@ -258,7 +286,9 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
                       { value: 'students', label: 'Students Only', desc: 'All students' },
                       { value: 'staff', label: 'Staff Only', desc: 'All staff members', hideFor: ['staff'] },
                       { value: 'admins', label: 'Admins Only', desc: 'All administrators', hideFor: ['admin'] },
-                      { value: 'group', label: 'Specific Groups', desc: 'Select custom groups' }
+                      { value: 'admins', label: 'Admins Only', desc: 'All administrators', hideFor: ['admin'] },
+                      { value: 'group', label: 'Specific Groups', desc: 'Select custom groups' },
+                      { value: 'manual', label: 'Specific Emails', desc: 'Enter email addresses manually' }
                     ]
                       .filter(option => !option.hideFor?.includes(currentUser?.role || ''))
                       .map((option) => (
@@ -275,7 +305,7 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
                             value={option.value}
                             checked={formData.recipients === option.value}
                             onChange={(e) => {
-                              const val = e.target.value as 'all' | 'students' | 'staff' | 'admins' | 'group'
+                              const val = e.target.value as 'all' | 'students' | 'staff' | 'admins' | 'group' | 'manual'
                               setFormData((prev) => ({
                                 ...prev,
                                 recipients: val,
@@ -338,6 +368,20 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
                         })}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {formData.recipients === 'manual' && (
+                  <div>
+                    <label className="block text-sm font-semibold mb-3">Enter Email Addresses</label>
+                    <Textarea
+                      placeholder="e.g. user1@example.com, user2@example.com"
+                      value={formData.manualEmails}
+                      onChange={(e) => setFormData({ ...formData, manualEmails: e.target.value })}
+                      className="text-base"
+                      rows={4}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Separate multiple emails with commas</p>
                   </div>
                 )}
 
