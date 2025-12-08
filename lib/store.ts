@@ -256,7 +256,7 @@ export const useStore = create<AppState>((set, get) => ({
     )
 
     // If not found locally, try to fetch from Supabase
-    if (!user) {
+    if (!user && supabase) {
       try {
         const { data, error } = await supabase
           .from('users')
@@ -339,35 +339,37 @@ export const useStore = create<AppState>((set, get) => ({
       set((state) => ({ users: [...state.users, newUser] }))
 
       // Try to save to Supabase
-      try {
-        const { data, error } = await supabase
-          .from('users')
-          .insert([{
-            name: userData.name,
-            email: userData.email,
-            password: userData.password,
-            role: userData.role,
-            status: userData.status,
-            phone_number: userData.phone_number,
-            department: userData.department,
-            course: userData.course,
-            sub_course: userData.sub_course,
-            dob: userData.dob,
-            age: userData.age,
-            blood_group: userData.blood_group,
-            parent_phone: userData.parent_phone,
-            responsible_staff: userData.responsible_staff,
-          }])
-          .select()
-          .single()
+      if (supabase) {
+        try {
+          const { data, error } = await supabase
+            .from('users')
+            .insert([{
+              name: userData.name,
+              email: userData.email,
+              password: userData.password,
+              role: userData.role,
+              status: userData.status,
+              phone_number: userData.phone_number,
+              department: userData.department,
+              course: userData.course,
+              sub_course: userData.sub_course,
+              dob: userData.dob,
+              age: userData.age,
+              blood_group: userData.blood_group,
+              parent_phone: userData.parent_phone,
+              responsible_staff: userData.responsible_staff,
+            }])
+            .select()
+            .single()
 
-        if (error) {
-          console.warn('Supabase not configured or error occurred, using local storage:', error.message)
-        } else {
-          console.log('User saved to Supabase successfully')
+          if (error) {
+            console.warn('Supabase not configured or error occurred, using local storage:', error.message)
+          } else {
+            console.log('User saved to Supabase successfully')
+          }
+        } catch (supabaseError) {
+          console.warn('Supabase not available, using local storage only')
         }
-      } catch (supabaseError) {
-        console.warn('Supabase not available, using local storage only')
       }
     } catch (error) {
       console.error('Failed to add user:', error)
@@ -387,36 +389,38 @@ export const useStore = create<AppState>((set, get) => ({
       }))
 
       // Try to update in Supabase
-      try {
-        const { data, error } = await supabase
-          .from('users')
-          .update({
-            name: userData.name,
-            email: userData.email,
-            password: userData.password,
-            role: userData.role,
-            status: userData.status,
-            phone_number: userData.phone_number,
-            department: userData.department,
-            course: userData.course,
-            sub_course: userData.sub_course,
-            dob: userData.dob,
-            age: userData.age,
-            blood_group: userData.blood_group,
-            parent_phone: userData.parent_phone,
-            responsible_staff: userData.responsible_staff,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', id)
-          .select()
+      if (supabase) {
+        try {
+          const { data, error } = await supabase
+            .from('users')
+            .update({
+              name: userData.name,
+              email: userData.email,
+              password: userData.password,
+              role: userData.role,
+              status: userData.status,
+              phone_number: userData.phone_number,
+              department: userData.department,
+              course: userData.course,
+              sub_course: userData.sub_course,
+              dob: userData.dob,
+              age: userData.age,
+              blood_group: userData.blood_group,
+              parent_phone: userData.parent_phone,
+              responsible_staff: userData.responsible_staff,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', id)
+            .select()
 
-        if (error) {
-          console.warn('Supabase not configured or error occurred, using local storage:', error.message)
-        } else {
-          console.log('User updated in Supabase successfully')
+          if (error) {
+            console.warn('Supabase not configured or error occurred, using local storage:', error.message)
+          } else {
+            console.log('User updated in Supabase successfully')
+          }
+        } catch (supabaseError) {
+          console.warn('Supabase not available, using local storage only')
         }
-      } catch (supabaseError) {
-        console.warn('Supabase not available, using local storage only')
       }
     } catch (error) {
       console.error('Failed to update user:', error)
@@ -432,19 +436,21 @@ export const useStore = create<AppState>((set, get) => ({
       }))
 
       // Try to delete from Supabase
-      try {
-        const { error } = await supabase
-          .from('users')
-          .delete()
-          .eq('id', id)
+      if (supabase) {
+        try {
+          const { error } = await supabase
+            .from('users')
+            .delete()
+            .eq('id', id)
 
-        if (error) {
-          console.warn('Supabase not configured or error occurred, using local storage:', error.message)
-        } else {
-          console.log('User deleted from Supabase successfully')
+          if (error) {
+            console.warn('Supabase not configured or error occurred, using local storage:', error.message)
+          } else {
+            console.log('User deleted from Supabase successfully')
+          }
+        } catch (supabaseError) {
+          console.warn('Supabase not available, using local storage only')
         }
-      } catch (supabaseError) {
-        console.warn('Supabase not available, using local storage only')
       }
     } catch (error) {
       console.error('Failed to delete user:', error)
@@ -453,6 +459,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   fetchUsers: async () => {
+    if (!supabase) return
     try {
       const { data, error } = await supabase
         .from('users')
@@ -475,37 +482,10 @@ export const useStore = create<AppState>((set, get) => ({
       // Try to save to Supabase first
       let supabaseMessage: Message | null = null
 
-      try {
-        // Attempt 1: Try to insert with read_by (new schema)
-        const { data, error } = await supabase
-          .from('messages')
-          .insert([{
-            title: messageData.title,
-            content: messageData.content,
-            sender: messageData.sender,
-            sender_role: messageData.sender_role,
-            recipients: messageData.recipients,
-            custom_groups: messageData.custom_groups,
-            manual_recipients: messageData.manual_recipients,
-            priority: messageData.priority,
-            attachments: messageData.attachments,
-            schedule_type: messageData.schedule_type,
-            schedule_date: messageData.schedule_date,
-            schedule_time: messageData.schedule_time,
-            total_recipients: messageData.total_recipients,
-            read_count: 0,
-            read_by: [],
-            acknowledged: false,
-            acknowledged_by: [],
-          }])
-          .select()
-          .single()
-
-        if (error) {
-          // If error is about missing column, try fallback
-          console.warn('Supabase insert with read_by failed, retrying without it:', error.message)
-
-          const { data: retryData, error: retryError } = await supabase
+      if (supabase) {
+        try {
+          // Attempt 1: Try to insert with read_by (new schema)
+          const { data, error } = await supabase
             .from('messages')
             .insert([{
               title: messageData.title,
@@ -522,24 +502,53 @@ export const useStore = create<AppState>((set, get) => ({
               schedule_time: messageData.schedule_time,
               total_recipients: messageData.total_recipients,
               read_count: 0,
+              read_by: [],
               acknowledged: false,
               acknowledged_by: [],
             }])
             .select()
             .single()
 
-          if (retryError) {
-            throw retryError
+          if (error) {
+            // If error is about missing column, try fallback
+            console.warn('Supabase insert with read_by failed, retrying without it:', error.message)
+
+            const { data: retryData, error: retryError } = await supabase
+              .from('messages')
+              .insert([{
+                title: messageData.title,
+                content: messageData.content,
+                sender: messageData.sender,
+                sender_role: messageData.sender_role,
+                recipients: messageData.recipients,
+                custom_groups: messageData.custom_groups,
+                manual_recipients: messageData.manual_recipients,
+                priority: messageData.priority,
+                attachments: messageData.attachments,
+                schedule_type: messageData.schedule_type,
+                schedule_date: messageData.schedule_date,
+                schedule_time: messageData.schedule_time,
+                total_recipients: messageData.total_recipients,
+                read_count: 0,
+                acknowledged: false,
+                acknowledged_by: [],
+              }])
+              .select()
+              .single()
+
+            if (retryError) {
+              throw retryError
+            } else {
+              supabaseMessage = retryData
+              console.log('Message saved to Supabase successfully (legacy schema):', retryData)
+            }
           } else {
-            supabaseMessage = retryData
-            console.log('Message saved to Supabase successfully (legacy schema):', retryData)
+            supabaseMessage = data
+            console.log('Message saved to Supabase successfully:', data)
           }
-        } else {
-          supabaseMessage = data
-          console.log('Message saved to Supabase successfully:', data)
+        } catch (supabaseError) {
+          console.warn('Supabase operation failed, falling back to local storage', supabaseError)
         }
-      } catch (supabaseError) {
-        console.warn('Supabase operation failed, falling back to local storage', supabaseError)
       }
 
       // Create message object (use Supabase data if available, otherwise create local)
@@ -779,6 +788,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   fetchMessages: async () => {
+    if (!supabase) return
     try {
       // Try normal fetch first
       const { data, error } = await supabase
@@ -852,6 +862,7 @@ export const useStore = create<AppState>((set, get) => ({
   // Group Actions
   addGroup: async (groupData) => {
     try {
+      if (!supabase) throw new Error('Supabase not configured')
       const { data, error } = await supabase
         .from('groups')
         .insert([groupData])
@@ -878,12 +889,14 @@ export const useStore = create<AppState>((set, get) => ({
 
   updateGroup: async (id, groupData) => {
     try {
-      const { error } = await supabase
-        .from('groups')
-        .update({ ...groupData, updated_at: new Date().toISOString() })
-        .eq('id', id)
+      if (supabase) {
+        const { error } = await supabase
+          .from('groups')
+          .update({ ...groupData, updated_at: new Date().toISOString() })
+          .eq('id', id)
 
-      if (error) throw error
+        if (error) throw error
+      }
 
       set((state) => ({
         groups: state.groups.map((group) =>
@@ -906,12 +919,14 @@ export const useStore = create<AppState>((set, get) => ({
 
   deleteGroup: async (id) => {
     try {
-      const { error } = await supabase
-        .from('groups')
-        .delete()
-        .eq('id', id)
+      if (supabase) {
+        const { error } = await supabase
+          .from('groups')
+          .delete()
+          .eq('id', id)
 
-      if (error) throw error
+        if (error) throw error
+      }
 
       set((state) => ({
         groups: state.groups.filter((group) => group.id !== id),
@@ -925,6 +940,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   fetchGroups: async () => {
+    if (!supabase) return
     try {
       const { data, error } = await supabase
         .from('groups')
@@ -944,6 +960,7 @@ export const useStore = create<AppState>((set, get) => ({
   // Department Actions
   addDepartment: async (departmentData) => {
     try {
+      if (!supabase) throw new Error('Supabase not configured')
       const { data, error } = await supabase
         .from('departments')
         .insert([departmentData])
@@ -986,13 +1003,15 @@ export const useStore = create<AppState>((set, get) => ({
       console.log(`Updating department: "${oldDeptName}" → "${newDeptName}"`)
 
       // Update the department in Supabase
-      const { error } = await supabase
-        .from('departments')
-        .update({ ...departmentData, updated_at: new Date().toISOString() })
-        .eq('id', id)
+      if (supabase) {
+        const { error } = await supabase
+          .from('departments')
+          .update({ ...departmentData, updated_at: new Date().toISOString() })
+          .eq('id', id)
 
-      if (error) {
-        console.warn('Error updating department in Supabase:', error)
+        if (error) {
+          console.warn('Error updating department in Supabase:', error)
+        }
       }
 
       // If department name changed, update all users with the old department name
@@ -1000,15 +1019,17 @@ export const useStore = create<AppState>((set, get) => ({
         console.log(`Updating users with department: "${oldDeptName}"`)
 
         // Update in Supabase
-        const { error: usersError } = await supabase
-          .from('users')
-          .update({ department: newDeptName, updated_at: new Date().toISOString() })
-          .eq('department', oldDeptName)
+        if (supabase) {
+          const { error: usersError } = await supabase
+            .from('users')
+            .update({ department: newDeptName, updated_at: new Date().toISOString() })
+            .eq('department', oldDeptName)
 
-        if (usersError) {
-          console.warn('Error updating users with new department name:', usersError)
-        } else {
-          console.log(`Successfully updated users in Supabase`)
+          if (usersError) {
+            console.warn('Error updating users with new department name:', usersError)
+          } else {
+            console.log(`Successfully updated users in Supabase`)
+          }
         }
       }
 
@@ -1055,12 +1076,14 @@ export const useStore = create<AppState>((set, get) => ({
 
   deleteDepartment: async (id) => {
     try {
-      const { error } = await supabase
-        .from('departments')
-        .delete()
-        .eq('id', id)
+      if (supabase) {
+        const { error } = await supabase
+          .from('departments')
+          .delete()
+          .eq('id', id)
 
-      if (error) throw error
+        if (error) throw error
+      }
 
       set((state) => ({
         departments: state.departments.filter((department) => department.id !== id),
@@ -1075,6 +1098,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   fetchDepartments: async () => {
+    if (!supabase) return
     try {
       const { data, error } = await supabase
         .from('departments')
@@ -1128,24 +1152,26 @@ export const useStore = create<AppState>((set, get) => ({
       */
 
       // Try to persist to Supabase
-      try {
-        const { data, error } = await supabase
-          .from('notifications')
-          .insert([notificationData])
-          .select()
-          .single()
+      if (supabase) {
+        try {
+          const { data, error } = await supabase
+            .from('notifications')
+            .insert([notificationData])
+            .select()
+            .single()
 
-        if (error) {
-          console.warn('Supabase insert error for notification, falling back to local:', error.message || error)
-        }
+          if (error) {
+            console.warn('Supabase insert error for notification, falling back to local:', error.message || error)
+          }
 
-        if (data) {
-          // Use returned Supabase row to maintain consistent ids/created_at
-          set((state) => ({ notifications: [data as Notification, ...state.notifications] }))
-          return
+          if (data) {
+            // Use returned Supabase row to maintain consistent ids/created_at
+            set((state) => ({ notifications: [data as Notification, ...state.notifications] }))
+            return
+          }
+        } catch (supabaseError) {
+          console.warn('Supabase unavailable when inserting notification, will add locally')
         }
-      } catch (supabaseError) {
-        console.warn('Supabase unavailable when inserting notification, will add locally')
       }
 
       // Fallback/local insertion
@@ -1187,6 +1213,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   // Comment Actions
   fetchComments: async () => {
+    if (!supabase) return
     try {
       const { data, error } = await supabase
         .from('comments')
@@ -1207,20 +1234,22 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       // Try Supabase insert first
       let savedComment: Comment | null = null
-      try {
-        const { data, error } = await supabase
-          .from('comments')
-          .insert([commentData])
-          .select()
-          .single()
+      if (supabase) {
+        try {
+          const { data, error } = await supabase
+            .from('comments')
+            .insert([commentData])
+            .select()
+            .single()
 
-        if (error) {
-          console.warn('Supabase insert comment failed, falling back to local', error)
-        } else {
-          savedComment = data as Comment
+          if (error) {
+            console.warn('Supabase insert comment failed, falling back to local', error)
+          } else {
+            savedComment = data as Comment
+          }
+        } catch (supabaseError) {
+          console.warn('Supabase unavailable for comments, will use local state', supabaseError)
         }
-      } catch (supabaseError) {
-        console.warn('Supabase unavailable for comments, will use local state', supabaseError)
       }
 
       const newComment: Comment = savedComment || {
@@ -1339,15 +1368,17 @@ export const useStore = create<AppState>((set, get) => ({
       }))
 
       // Try Supabase
-      try {
-        const { error } = await supabase
-          .from('comments')
-          .update({ ...commentData, updated_at: new Date().toISOString() })
-          .eq('id', id)
+      if (supabase) {
+        try {
+          const { error } = await supabase
+            .from('comments')
+            .update({ ...commentData, updated_at: new Date().toISOString() })
+            .eq('id', id)
 
-        if (error) console.warn('Supabase error updating comment:', error)
-      } catch (supabaseError) {
-        console.warn('Supabase unavailable when updating comment', supabaseError)
+          if (error) console.warn('Supabase error updating comment:', error)
+        } catch (supabaseError) {
+          console.warn('Supabase unavailable when updating comment', supabaseError)
+        }
       }
     } catch (error) {
       console.error('Failed to update comment locally:', error)
@@ -1360,15 +1391,17 @@ export const useStore = create<AppState>((set, get) => ({
       set((state) => ({ comments: state.comments.filter(c => c.id !== id) }))
 
       // Try Supabase
-      try {
-        const { error } = await supabase
-          .from('comments')
-          .delete()
-          .eq('id', id)
+      if (supabase) {
+        try {
+          const { error } = await supabase
+            .from('comments')
+            .delete()
+            .eq('id', id)
 
-        if (error) console.warn('Supabase error deleting comment:', error)
-      } catch (supabaseError) {
-        console.warn('Supabase unavailable when deleting comment', supabaseError)
+          if (error) console.warn('Supabase error deleting comment:', error)
+        } catch (supabaseError) {
+          console.warn('Supabase unavailable when deleting comment', supabaseError)
+        }
       }
     } catch (error) {
       console.error('Failed to delete comment:', error)
@@ -1391,18 +1424,36 @@ export const useStore = create<AppState>((set, get) => ({
         throw new Error('Created by is required')
       }
 
-      // Generate a default code if empty (from course name first letters)
-      const courseCode = courseData.code && courseData.code.trim()
-        ? courseData.code.trim()
-        : courseData.name.split(' ').map(w => w[0]).join('').toUpperCase() || 'COURSE'
+      // Generate a default code if empty (from course name)
+      let courseCode = ''
 
-      console.log('[addCourse] Validation passed, inserting to Supabase...')
+      if (courseData.code && courseData.code.trim()) {
+        courseCode = courseData.code.trim().toUpperCase().replace(/[^A-Z]/g, '')
+      } else {
+        // If multiple words, take first letters
+        const words = courseData.name.split(' ')
+        if (words.length > 1) {
+          courseCode = words.map(w => w[0]).join('').toUpperCase().replace(/[^A-Z]/g, '')
+        } else {
+          // If single word, take first 4 letters
+          courseCode = courseData.name.substring(0, 4).toUpperCase().replace(/[^A-Z]/g, '')
+        }
+      }
+
+      // Ensure code is at least 2 characters long and pure letters
+      if (courseCode.length < 2) {
+        courseCode = (courseCode + 'XX').slice(0, 4)
+      }
+
+      console.log('[addCourse] Validation passed, inserting to Supabase with code:', courseCode)
 
       const dataToInsert = {
         ...courseData,
         code: courseCode,
         description: courseData.description || null
       }
+
+      if (!supabase) throw new Error('Supabase not configured')
 
       const { data, error } = await supabase
         .from('courses')
@@ -1473,12 +1524,14 @@ export const useStore = create<AppState>((set, get) => ({
 
   updateCourse: async (id, courseData) => {
     try {
-      const { error } = await supabase
-        .from('courses')
-        .update({ ...courseData, updated_at: new Date().toISOString() })
-        .eq('id', id)
+      if (supabase) {
+        const { error } = await supabase
+          .from('courses')
+          .update({ ...courseData, updated_at: new Date().toISOString() })
+          .eq('id', id)
 
-      if (error) throw error
+        if (error) throw error
+      }
 
       set((state) => ({
         courses: state.courses.map((course) =>
@@ -1506,12 +1559,14 @@ export const useStore = create<AppState>((set, get) => ({
 
   deleteCourse: async (id) => {
     try {
-      const { error } = await supabase
-        .from('courses')
-        .delete()
-        .eq('id', id)
+      if (supabase) {
+        const { error } = await supabase
+          .from('courses')
+          .delete()
+          .eq('id', id)
 
-      if (error) throw error
+        if (error) throw error
+      }
 
       set((state) => ({
         courses: state.courses.filter((course) => course.id !== id),
@@ -1529,6 +1584,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   fetchCourses: async () => {
+    if (!supabase) return
     try {
       const { data, error } = await supabase
         .from('courses')
@@ -1551,9 +1607,37 @@ export const useStore = create<AppState>((set, get) => ({
   // Sub Course Actions
   addSubCourse: async (subCourseData) => {
     try {
+      if (!supabase) throw new Error('Supabase not configured')
+      // Generate a default code if empty (from sub-course name)
+      let subCourseCode = ''
+
+      if (subCourseData.code && subCourseData.code.trim()) {
+        subCourseCode = subCourseData.code.trim().toUpperCase().replace(/[^A-Z]/g, '')
+      } else {
+        const words = subCourseData.name.split(' ')
+        if (words.length > 1) {
+          subCourseCode = words.map(w => w[0]).join('').toUpperCase().replace(/[^A-Z]/g, '')
+        } else {
+          subCourseCode = subCourseData.name.substring(0, 4).toUpperCase().replace(/[^A-Z]/g, '')
+        }
+      }
+
+      // Ensure code is at least 2 characters long
+      if (subCourseCode.length < 2) {
+        subCourseCode = (subCourseCode + 'XX').slice(0, 4)
+      }
+
+      console.log('[addSubCourse] Validation passed, inserting with code:', subCourseCode)
+
+      const dataToInsert = {
+        ...subCourseData,
+        code: subCourseCode,
+        description: subCourseData.description || null
+      }
+
       const { data, error } = await supabase
         .from('sub_courses')
-        .insert([subCourseData])
+        .insert([dataToInsert])
         .select()
 
       if (error) throw error
@@ -1577,12 +1661,14 @@ export const useStore = create<AppState>((set, get) => ({
 
   updateSubCourse: async (id, subCourseData) => {
     try {
-      const { error } = await supabase
-        .from('sub_courses')
-        .update({ ...subCourseData, updated_at: new Date().toISOString() })
-        .eq('id', id)
+      if (supabase) {
+        const { error } = await supabase
+          .from('sub_courses')
+          .update({ ...subCourseData, updated_at: new Date().toISOString() })
+          .eq('id', id)
 
-      if (error) throw error
+        if (error) throw error
+      }
 
       set((state) => ({
         subCourses: state.subCourses.map((subCourse) =>
@@ -1605,12 +1691,14 @@ export const useStore = create<AppState>((set, get) => ({
 
   deleteSubCourse: async (id) => {
     try {
-      const { error } = await supabase
-        .from('sub_courses')
-        .delete()
-        .eq('id', id)
+      if (supabase) {
+        const { error } = await supabase
+          .from('sub_courses')
+          .delete()
+          .eq('id', id)
 
-      if (error) throw error
+        if (error) throw error
+      }
 
       set((state) => ({
         subCourses: state.subCourses.filter((subCourse) => subCourse.id !== id),
@@ -1624,6 +1712,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   fetchSubCourses: async () => {
+    if (!supabase) return
     try {
       const { data, error } = await supabase
         .from('sub_courses')
