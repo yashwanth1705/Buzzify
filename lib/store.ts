@@ -66,7 +66,7 @@ interface AppState {
   acknowledgeMessage: (messageId: number, userId: number) => Promise<void>
   markMessageAsRead: (messageId: number) => void
   fetchMessages: () => Promise<void>
-  getMessageAcknowledgementDetails: (messageId: number) => { acknowledged: any[]; pending: any[] }
+  getMessageAcknowledgementDetails: (messageId: number) => { acknowledged: User[]; pending: User[] }
 
   // Group Actions
   addGroup: (group: Omit<Group, 'id' | 'created_at' | 'updated_at'>) => Promise<void>
@@ -271,7 +271,7 @@ export const useStore = create<AppState>((set, get) => ({
           // Add to local state
           set((state) => ({ users: [...state.users, user!] }))
         }
-      } catch (supabaseError) {
+      } catch (_) {
         console.warn('Supabase login failed, using local storage only')
       }
     }
@@ -284,24 +284,27 @@ export const useStore = create<AppState>((set, get) => ({
 
     if (user) {
       // Normalize user shape to avoid runtime crashes when UI expects fields
+      // We cast to unknown first then Record to safely access potentially missing properties
+      const rawUser = user as unknown as Record<string, unknown>
+
       const normalizedUser = {
         // preserve original properties first
         ...user,
         // then ensure required fields exist and have safe defaults
-        id: typeof (user as any).id === 'number' ? (user as any).id : Number((user as any).id) || 0,
-        name: (user as any).name || (user as any).full_name || (user as any).email || 'Unknown User',
-        email: (user as any).email || '',
-        role: (user as any).role || 'student',
-        status: (user as any).status || 'active',
-        department: (user as any).department || 'N/A',
-        phone_number: (user as any).phone_number || '',
+        id: typeof rawUser.id === 'number' ? rawUser.id : Number(rawUser.id) || 0,
+        name: (rawUser.name as string) || (rawUser.full_name as string) || (rawUser.email as string) || 'Unknown User',
+        email: (rawUser.email as string) || '',
+        role: (rawUser.role as string) || 'student',
+        status: (rawUser.status as string) || 'active',
+        department: (rawUser.department as string) || 'N/A',
+        phone_number: (rawUser.phone_number as string) || '',
       }
 
       if (!normalizedUser.id) {
         console.warn('Login: user has no numeric id, assigned fallback id 0. This may indicate inconsistent user schema.')
       }
 
-      set({ currentUser: normalizedUser as any, isAuthenticated: true })
+      set({ currentUser: normalizedUser as User, isAuthenticated: true })
       return Promise.resolve(true)
     }
     return Promise.resolve(false)

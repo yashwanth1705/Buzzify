@@ -8,10 +8,11 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useStore } from '@/lib/store'
+import { Message } from '@/lib/supabase'
 
 interface MessageSearchFilterProps {
-  messages: any[]
-  onFiltered: (messages: any[]) => void
+  messages: Message[]
+  onFiltered: (messages: Message[]) => void
 }
 
 export default function MessageSearchFilter({ messages, onFiltered }: MessageSearchFilterProps) {

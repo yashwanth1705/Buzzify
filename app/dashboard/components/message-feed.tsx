@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useStore } from '@/lib/store'
+import { Message } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -54,7 +55,7 @@ export default function MessageFeed({ onSelectMessage }: MessageFeedProps) {
     }
   }, [messages, currentUser?.role, currentUser?.email, groups])
 
-  const [filteredMessages, setFilteredMessages] = useState<any[]>(visibleMessages)
+  const [filteredMessages, setFilteredMessages] = useState<Message[]>(visibleMessages)
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -107,15 +108,15 @@ export default function MessageFeed({ onSelectMessage }: MessageFeedProps) {
     }
   }
 
-  const isAcknowledged = (message: any) => {
+  const isAcknowledged = (message: Message) => {
     return currentUser && message.acknowledged_by?.includes(currentUser.id)
   }
 
-  const isMessageRead = (message: any) => {
+  const isMessageRead = (message: Message) => {
     return currentUser && message.read_by?.includes(currentUser.id)
   }
 
-  const shouldShowUnacknowledgedHighlight = (message: any) => {
+  const shouldShowUnacknowledgedHighlight = (message: Message) => {
     if (isAcknowledged(message)) return false
 
     // Students and staff should see highlight
