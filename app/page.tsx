@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useStore } from '@/lib/store'
-import { GraduationCap, Users, UserCheck, Sun, Moon } from 'lucide-react'
+import { Sun, Moon } from 'lucide-react'
 import ForgotPassword from './components/forgot-password'
 
 export default function LoginPage() {
@@ -88,32 +88,6 @@ export default function LoginPage() {
     setLoading(false)
   }
 
-  const demoCredentials = [
-    { role: 'admin', email: '202317b2398@wilp.bits-pilani.ac.in', password: 'admin123', icon: UserCheck },
-    { role: 'staff', email: 'tamilselvam.cm@gmail.com', password: 'staff123', icon: Users },
-    { role: 'student', email: 'yashwanthrathnam@gmail.com', password: 'student123', icon: GraduationCap },
-  ]
-
-  const handleDemoLogin = async (role: string, demoEmail: string, demoPassword: string) => {
-    setLoading(true)
-    setError('')
-    setSelectedRole(role)
-    setEmail(demoEmail)
-    setPassword(demoPassword)
-
-    try {
-      const success = await login(demoEmail, demoPassword, role)
-      if (success) {
-        router.push('/dashboard')
-      } else {
-        setError('Demo login failed - role mismatch')
-      }
-    } catch (err) {
-      setError('Demo login failed')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   return (
     <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-300 ${isDarkMode
@@ -217,36 +191,7 @@ export default function LoginPage() {
               </div>
             </form>
 
-            <div className="mt-6">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">
-                    Demo Accounts
-                  </span>
-                </div>
-              </div>
 
-              <div className="mt-4 space-y-2">
-                {demoCredentials.map((demo) => {
-                  const Icon = demo.icon
-                  return (
-                    <Button
-                      key={demo.role}
-                      variant="outline"
-                      className="w-full justify-start"
-                      onClick={() => handleDemoLogin(demo.role, demo.email, demo.password)}
-                      disabled={loading}
-                    >
-                      <Icon className="mr-2 h-4 w-4" />
-                      {demo.role.charAt(0).toUpperCase() + demo.role.slice(1)} Demo
-                    </Button>
-                  )
-                })}
-              </div>
-            </div>
           </CardContent>
         </Card>
       </div>
