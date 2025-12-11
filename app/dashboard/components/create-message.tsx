@@ -286,7 +286,6 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
                       { value: 'students', label: 'Students Only', desc: 'All students' },
                       { value: 'staff', label: 'Staff Only', desc: 'All staff members', hideFor: ['staff'] },
                       { value: 'admins', label: 'Admins Only', desc: 'All administrators', hideFor: ['admin'] },
-                      { value: 'admins', label: 'Admins Only', desc: 'All administrators', hideFor: ['admin'] },
                       { value: 'group', label: 'Specific Groups', desc: 'Select custom groups' },
                       { value: 'manual', label: 'Specific Emails', desc: 'Enter email addresses manually' }
                     ]
