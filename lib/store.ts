@@ -590,6 +590,8 @@ export const useStore = create<AppState>((set, get) => ({
         recipientUsers = users.filter(u => u.role === 'staff')
       } else if (messageData.recipients === 'admins') {
         recipientUsers = users.filter(u => u.role === 'admin')
+      } else if (messageData.recipients === 'department_staff') {
+        recipientUsers = users.filter(u => u.role === 'staff' && u.department === currentUser?.department)
       } else if (messageData.recipients === 'group' && messageData.custom_groups) {
         const targetEmails = new Set<string>()
         const allGroups = get().groups

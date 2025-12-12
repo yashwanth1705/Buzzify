@@ -40,7 +40,7 @@ export default function Sidebar({
       id: 'create',
       label: 'Create Message',
       icon: Plus,
-      roles: ['admin', 'staff']
+      roles: ['admin', 'staff', 'student']
     },
 
     {

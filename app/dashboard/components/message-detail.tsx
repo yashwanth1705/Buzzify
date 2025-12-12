@@ -445,7 +445,7 @@ export default function MessageDetail({ messageId, onBack }: MessageDetailProps)
             </div>
           )}
 
-          {(currentUser?.role === 'student' || currentUser?.role === 'staff' || (currentUser?.role === 'admin' && message.sender_role === 'staff')) && (
+          {((currentUser?.role === 'student' || currentUser?.role === 'staff' || (currentUser?.role === 'admin' && message.sender_role === 'staff')) && message.sender !== currentUser?.name) && (
             <div className="flex justify-center pt-4">
               {!isAcknowledged() && (
                 <Button

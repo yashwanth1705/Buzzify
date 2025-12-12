@@ -16,7 +16,7 @@ interface MessageFeedProps {
 }
 
 export default function MessageFeed({ onSelectMessage }: MessageFeedProps) {
-  const { messages, currentUser, acknowledgeMessage, markMessageAsRead, groups } = useStore()
+  const { messages, currentUser, acknowledgeMessage, markMessageAsRead, groups, users } = useStore()
 
   // Memoize visible messages to avoid creating a new array each render
   const visibleMessages = useMemo(() => {
@@ -45,6 +45,11 @@ export default function MessageFeed({ onSelectMessage }: MessageFeedProps) {
           if (message.manual_recipients.includes(currentUser.email)) return true
         }
 
+        if (message.recipients === 'department_staff' && isStaff) {
+          const sender = users.find(u => u.name === message.sender)
+          if (sender && sender.department === currentUser?.department) return true
+        }
+
         return false
       })
 
@@ -53,7 +58,7 @@ export default function MessageFeed({ onSelectMessage }: MessageFeedProps) {
       console.error('Error computing visibleMessages:', e)
       return []
     }
-  }, [messages, currentUser?.role, currentUser?.email, groups])
+  }, [messages, currentUser?.role, currentUser?.email, groups, users])
 
   const [filteredMessages, setFilteredMessages] = useState<Message[]>(visibleMessages)
 
@@ -118,6 +123,9 @@ export default function MessageFeed({ onSelectMessage }: MessageFeedProps) {
 
   const shouldShowUnacknowledgedHighlight = (message: Message) => {
     if (isAcknowledged(message)) return false
+
+    // Sender should not acknowledge their own message
+    if (message.sender === currentUser?.name) return false
 
     // Students and staff should see highlight
     if (currentUser?.role === 'student' || currentUser?.role === 'staff') return true

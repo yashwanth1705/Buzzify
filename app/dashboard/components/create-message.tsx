@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useStore } from '@/lib/store'
 import { sendNotificationEmail } from '@/app/actions/email'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -23,7 +23,7 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
     title: '',
     content: '',
     priority: 'medium' as 'low' | 'medium' | 'high',
-    recipients: 'all' as 'all' | 'students' | 'staff' | 'admins' | 'group' | 'manual',
+    recipients: 'all' as 'all' | 'students' | 'staff' | 'admins' | 'group' | 'manual' | 'department_staff',
     customGroups: [] as number[],
     manualEmails: '',
     scheduleType: 'now' as 'now' | 'later',
@@ -33,6 +33,15 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
   const [attachments, setAttachments] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showRecipientList, setShowRecipientList] = useState(false)
+
+  useEffect(() => {
+    if (currentUser?.role === 'student') {
+      setFormData(prev => ({ ...prev, recipients: 'department_staff' }))
+      setShowRecipientList(true)
+    }
+  }, [currentUser])
+
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -54,6 +63,9 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
         totalRecipients = recipientUsers.length
       } else if (formData.recipients === 'admins') {
         recipientUsers = users.filter(u => u.role === 'admin')
+        totalRecipients = recipientUsers.length
+      } else if (formData.recipients === 'department_staff') {
+        recipientUsers = users.filter((u) => u.role === 'staff' && u.department === currentUser.department)
         totalRecipients = recipientUsers.length
       }
 
@@ -146,6 +158,8 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
       count = users.filter(u => u.role === 'admin').length
     } else if (formData.recipients === 'group') {
       count = 0
+    } else if (formData.recipients === 'department_staff') {
+      count = users.filter((u) => u.role === 'staff' && u.department === currentUser?.department).length
     }
 
     formData.customGroups.forEach(groupId => {
@@ -179,6 +193,10 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
       emails = users.filter(u => u.role === 'admin').map(u => u.email)
     } else if (formData.recipients === 'group') {
       emails = []
+    } else if (formData.recipients === 'department_staff') {
+      emails = users
+        .filter((u) => u.role === 'staff' && u.department === currentUser.department)
+        .map((u) => u.email)
     }
 
     formData.customGroups.forEach(groupId => {
@@ -282,12 +300,13 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
                   <label className="block text-sm font-semibold mb-3">Select Recipients <span className="text-red-500">*</span></label>
                   <div className="space-y-2">
                     {[
-                      { value: 'all', label: 'All Campus Members', desc: 'Everyone except you' },
-                      { value: 'students', label: 'Students Only', desc: 'All students' },
-                      { value: 'staff', label: 'Staff Only', desc: 'All staff members', hideFor: ['staff'] },
-                      { value: 'admins', label: 'Admins Only', desc: 'All administrators', hideFor: ['admin'] },
-                      { value: 'group', label: 'Specific Groups', desc: 'Select custom groups' },
-                      { value: 'manual', label: 'Specific Emails', desc: 'Enter email addresses manually' }
+                      { value: 'all', label: 'All Campus Members', desc: 'Everyone except you', hideFor: ['student'] },
+                      { value: 'students', label: 'Students Only', desc: 'All students', hideFor: ['student'] },
+                      { value: 'staff', label: 'Staff Only', desc: 'All staff members', hideFor: ['staff', 'student'] },
+                      { value: 'admins', label: 'Admins Only', desc: 'All administrators', hideFor: ['admin', 'student'] },
+                      { value: 'group', label: 'Specific Groups', desc: 'Select custom groups', hideFor: ['student'] },
+                      { value: 'manual', label: 'Specific Emails', desc: 'Enter email addresses manually', hideFor: ['student'] },
+                      { value: 'department_staff', label: 'Department Staff', desc: `Staff in ${currentUser?.department || 'your department'}`, hideFor: ['admin', 'staff'] }
                     ]
                       .filter(option => !option.hideFor?.includes(currentUser?.role || ''))
                       .map((option) => (
@@ -304,12 +323,15 @@ export default function CreateMessage({ onSuccess }: CreateMessageProps) {
                             value={option.value}
                             checked={formData.recipients === option.value}
                             onChange={(e) => {
-                              const val = e.target.value as 'all' | 'students' | 'staff' | 'admins' | 'group' | 'manual'
+                              const val = e.target.value as 'all' | 'students' | 'staff' | 'admins' | 'group' | 'manual' | 'department_staff'
                               setFormData((prev) => ({
                                 ...prev,
                                 recipients: val,
                                 customGroups: [], // Reset custom groups when changing recipient type
                               }))
+                              if (val === 'department_staff') {
+                                setShowRecipientList(true)
+                              }
                             }}
                             className="mt-1"
                           />
